@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build release
+        run: cargo build --release -p mindow-cli
+      
+      - name: Rename artifact
+        run: copy target\release\mindow.exe mindow.exe
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mindow.exe
+          generate_release_notes: true

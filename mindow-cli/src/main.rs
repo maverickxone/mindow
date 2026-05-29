@@ -1,3 +1,4 @@
+mod ai;
 mod renderer;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -7,7 +8,7 @@ use mindow_core::filter::filter_snapshot;
 use mindow_core::rule_engine::RuleEngine;
 
 #[derive(Parser)]
-#[command(name = "mindow", version = "0.5.0", about = "Windows system resource analyzer")]
+#[command(name = "mindow", version = "1.0.0", about = "Windows system resource analyzer")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -59,11 +60,38 @@ enum Commands {
     Status,
     /// Continuously monitor system over time
     Watch,
+    /// AI 分析报告
+    Report {
+        /// 报告语言: cn | en
+        #[arg(long)]
+        lang: Option<String>,
+    },
+    /// 配置管理
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
     /// Update mindow to the latest version from source
     Update,
 }
 
-fn main() {
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// 设置配置项: mindow config set <key> <value>
+    Set {
+        /// 配置字段名 (provider, model, api_key, base_url, language)
+        key: String,
+        /// 配置值
+        value: String,
+    },
+    /// 显示当前配置
+    Show,
+    /// 交互式初始化配置
+    Init,
+}
+
+#[tokio::main]
+async fn main() {
     // Set Windows console to UTF-8 to avoid garbled output
     renderer::setup_console();
 
@@ -190,6 +218,197 @@ fn main() {
             }
 
             println!("\nWatch mode stopped.");
+        }
+        Commands::Report { lang } => {
+            use std::io::{self, Write};
+            use std::thread;
+            use std::time::Duration;
+            use ai::client::{AiClient, AiClientConfig, AiError, Provider, StreamCallback};
+
+            // 1. Load config
+            let ai_config = match ai::config::load_config() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error: {}\nHint: Run `mindow config init` to set up.", e);
+                    return;
+                }
+            };
+
+            // 2. Check API key
+            if ai_config.api_key.is_empty() {
+                eprintln!("Error: API 密钥未配置");
+                eprintln!("Hint:  运行 `mindow config set api_key <your-key>` 设置密钥");
+                return;
+            }
+
+            // 3. Determine language
+            let language = lang.unwrap_or(ai_config.language.clone());
+
+            // 4. Collect system data
+            let mut collector = SysinfoCollector::new();
+            thread::sleep(Duration::from_millis(500));
+            let processes = collector.collect_processes();
+            let system = collector.collect_system();
+
+            // 5. Filter and evaluate
+            let snapshot = filter_snapshot(&processes, &config);
+            let mut engine = RuleEngine::new(config.clone());
+            let alerts = engine.evaluate(&snapshot, &system);
+
+            // 6. Build prompts
+            let system_prompt = ai::prompt::build_system_prompt(&language);
+            let user_prompt = ai::prompt::build_user_prompt(&system, &snapshot, &alerts);
+
+            // 7. Build report header
+            let header = ai::report::build_report_header(&system, &alerts);
+
+            // 8. Create AI client
+            let provider = if ai_config.provider == "claude" {
+                Provider::Claude
+            } else {
+                Provider::OpenAI
+            };
+
+            let client_config = AiClientConfig {
+                provider: provider.clone(),
+                model: ai_config.model.clone(),
+                api_key: ai_config.api_key.clone(),
+                base_url: ai_config.base_url.clone(),
+                timeout_secs: 30,
+            };
+
+            // 9. Create stream callback
+            struct ReportCallback {
+                accumulated: String,
+            }
+            impl StreamCallback for ReportCallback {
+                fn on_delta(&mut self, text: &str) {
+                    print!("{}", text);
+                    io::stdout().flush().ok();
+                    self.accumulated.push_str(text);
+                }
+                fn on_complete(&mut self) {
+                    println!();
+                }
+                fn on_error(&mut self, error: &AiError) {
+                    eprintln!("\nError: {}", error);
+                }
+            }
+
+            let mut callback = ReportCallback { accumulated: String::new() };
+
+            println!("\nAnalyzing system... (streaming from {})\n", ai_config.provider);
+
+            // 10. Call AI
+            let result = match provider {
+                Provider::OpenAI => {
+                    let client = ai::client::OpenAiClient::new(client_config);
+                    client.stream_completion(&system_prompt, &user_prompt, &mut callback).await
+                }
+                Provider::Claude => {
+                    let client = ai::client::ClaudeClient::new(client_config);
+                    client.stream_completion(&system_prompt, &user_prompt, &mut callback).await
+                }
+            };
+
+            // 11. Save report
+            match result {
+                Ok(()) => {
+                    match ai::report::save_report(&header, &callback.accumulated) {
+                        Ok(path) => println!("\nReport saved to: {}", path.display()),
+                        Err(e) => eprintln!("\nWarning: Failed to save report: {}", e),
+                    }
+                }
+                Err(AiError::StreamInterrupted { ref partial_content }) => {
+                    eprintln!("\nStream interrupted. Saving partial report...");
+                    match ai::report::save_partial_report(&header, partial_content) {
+                        Ok(path) => println!("Partial report saved to: {}", path.display()),
+                        Err(e) => eprintln!("Failed to save partial report: {}", e),
+                    }
+                }
+                Err(e) => {
+                    eprintln!("\nError: {}", e);
+                }
+            }
+        }
+        Commands::Config { action } => {
+            match action {
+                ConfigAction::Set { key, value } => {
+                    match ai::config::set_config_field(&key, &value) {
+                        Ok(()) => println!("Config updated: {} = {}", key, value),
+                        Err(e) => eprintln!("Error: {}", e),
+                    }
+                }
+                ConfigAction::Show => {
+                    match ai::config::load_config() {
+                        Ok(config) => {
+                            println!("  provider:  {}", config.provider);
+                            println!("  model:     {}", if config.model.is_empty() { "(not set)".to_string() } else { config.model });
+                            println!("  api_key:   {}", if config.api_key.is_empty() { "(not set)".to_string() } else { ai::config::mask_api_key(&config.api_key) });
+                            println!("  base_url:  {}", config.base_url);
+                            println!("  language:  {}", config.language);
+                        }
+                        Err(e) => eprintln!("Error loading config: {}", e),
+                    }
+                }
+                ConfigAction::Init => {
+                    use std::io::{self, Write, BufRead};
+                    let stdin = io::stdin();
+                    let mut stdout = io::stdout();
+
+                    println!("Mindow Configuration Setup");
+                    println!("==========================\n");
+
+                    print!("Provider (openai/claude) [openai]: ");
+                    stdout.flush().unwrap();
+                    let mut provider = String::new();
+                    stdin.lock().read_line(&mut provider).unwrap();
+                    let provider = provider.trim();
+                    let provider = if provider.is_empty() { "openai" } else { provider };
+
+                    print!("API Key: ");
+                    stdout.flush().unwrap();
+                    let mut api_key = String::new();
+                    stdin.lock().read_line(&mut api_key).unwrap();
+                    let api_key = api_key.trim().to_string();
+
+                    let default_model = if provider == "claude" { "claude-sonnet-4-20250514" } else { "gpt-4o-mini" };
+                    print!("Model [{}]: ", default_model);
+                    stdout.flush().unwrap();
+                    let mut model = String::new();
+                    stdin.lock().read_line(&mut model).unwrap();
+                    let model = if model.trim().is_empty() { default_model.to_string() } else { model.trim().to_string() };
+
+                    let default_url = if provider == "claude" { "https://api.anthropic.com" } else { "https://api.openai.com" };
+                    print!("Base URL [{}]: ", default_url);
+                    stdout.flush().unwrap();
+                    let mut base_url = String::new();
+                    stdin.lock().read_line(&mut base_url).unwrap();
+                    let base_url = if base_url.trim().is_empty() { default_url.to_string() } else { base_url.trim().to_string() };
+
+                    print!("Language (cn/en) [cn]: ");
+                    stdout.flush().unwrap();
+                    let mut language = String::new();
+                    stdin.lock().read_line(&mut language).unwrap();
+                    let language = if language.trim().is_empty() { "cn".to_string() } else { language.trim().to_string() };
+
+                    let ai_cfg = ai::config::AiConfig {
+                        provider: provider.to_string(),
+                        model,
+                        api_key,
+                        base_url,
+                        language,
+                    };
+
+                    match ai::config::save_config(&ai_cfg) {
+                        Ok(()) => {
+                            println!("\nConfig saved to: {:?}", ai::config::config_path());
+                            println!("Done! Run `mindow report` to generate an AI analysis.");
+                        }
+                        Err(e) => eprintln!("Error saving config: {}", e),
+                    }
+                }
+            }
         }
         Commands::Update => {
             use std::process::Command;
