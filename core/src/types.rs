@@ -1,4 +1,4 @@
-// Core data types for Mindow v0.5.0
+// Core data types for Mindow
 
 /// A single point-in-time snapshot of a process's metrics.
 #[derive(Debug, Clone, PartialEq)]
@@ -42,11 +42,11 @@ pub enum ChargingState {
 /// Classification of a process's executable path.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathStatus {
-    /// Located in C:\Windows, C:\Program Files, or C:\Program Files (x86)
-    Standard,
-    /// Exists but not in a standard directory
-    Suspicious,
-    /// No path detected
+    /// System core process (C:\Windows\, WindowsApps)
+    System,
+    /// User-installed application
+    User,
+    /// No path detected (likely a system service we can't read)
     Unknown,
 }
 
@@ -87,11 +87,6 @@ pub enum Alert {
         used_percent: f32,
         candidates: Vec<MemoryCandidate>,
     },
-    SuspiciousPath {
-        process_name: String,
-        pid: u32,
-        path_status: PathStatus,
-    },
 }
 
 /// A process that is draining battery through high resource usage.
@@ -117,7 +112,7 @@ pub struct MemoryCandidate {
 pub enum AlertSeverity {
     /// Red: MemoryPressure, HighCpu
     Critical,
-    /// Yellow: MemoryLeak, BatteryWarning, SuspiciousPath
+    /// Yellow: MemoryLeak, BatteryWarning
     Warning,
 }
 
@@ -125,11 +120,11 @@ impl Alert {
     /// Classify the severity of this alert.
     ///
     /// Critical (red): MemoryPressure, HighCpu
-    /// Warning (yellow): MemoryLeak, BatteryWarning, SuspiciousPath
+    /// Warning (yellow): MemoryLeak, BatteryWarning
     pub fn severity(&self) -> AlertSeverity {
         match self {
             Alert::MemoryPressure { .. } | Alert::HighCpu { .. } => AlertSeverity::Critical,
-            Alert::MemoryLeak { .. } | Alert::BatteryWarning { .. } | Alert::SuspiciousPath { .. } => AlertSeverity::Warning,
+            Alert::MemoryLeak { .. } | Alert::BatteryWarning { .. } => AlertSeverity::Warning,
         }
     }
 }

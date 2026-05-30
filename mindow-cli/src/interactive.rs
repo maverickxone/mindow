@@ -13,7 +13,7 @@ pub async fn run_interactive() {
     println!();
     println!("{}", "=".repeat(60).dimmed());
     println!();
-    println!("  {}  {}", "Mindow".bold().cyan(), "v0.9.2".dimmed());
+    println!("  {}  {}", "Mindow".bold().cyan(), format!("v{}", env!("CARGO_PKG_VERSION")).dimmed());
     println!("  {}", "Windows System Resource Analyzer + AI".dimmed());
     println!();
     println!("  {}  {}",
@@ -282,11 +282,11 @@ async fn handle_slash_command(input: &str) -> bool {
         }
 
         "/baseline" | "/b" => {
-            let store = ai::baseline::load_baselines();
-            if store.entries.is_empty() {
+            let baseline_result = ai::baseline::load_baselines();
+            if baseline_result.store.entries.is_empty() {
                 println!("{}", "No baseline data. Run /status first.".dimmed());
             } else {
-                let mut entries: Vec<_> = store.entries.iter().collect();
+                let mut entries: Vec<_> = baseline_result.store.entries.iter().collect();
                 entries.sort_by(|a, b| {
                     b.1.avg_memory_mb
                         .partial_cmp(&a.1.avg_memory_mb)
@@ -313,12 +313,12 @@ async fn handle_slash_command(input: &str) -> bool {
         }
 
         "/knowledge" | "/k" => {
-            let kb = ai::knowledge::load_knowledge();
-            if kb.entries.is_empty() {
+            let kb_result = ai::knowledge::load_knowledge();
+            if kb_result.kb.entries.is_empty() {
                 println!("{}", "No knowledge cached. Run /search <process> first.".dimmed());
             } else {
                 println!();
-                let mut entries: Vec<_> = kb.entries.iter().collect();
+                let mut entries: Vec<_> = kb_result.kb.entries.iter().collect();
                 entries.sort_by_key(|(name, _)| name.to_string());
                 for (name, info) in entries {
                     let risk_colored = match info.risk.as_str() {
@@ -383,12 +383,15 @@ async fn run_status() {
     let alerts = engine.evaluate(&snapshot, &system);
 
     // Update baselines
-    let mut baseline_store = ai::baseline::load_baselines();
+    let baseline_result = ai::baseline::load_baselines();
+    let mut baseline_store = baseline_result.store;
     for g in &grouped {
         let mem_mb = g.total_memory as f64 / 1024.0 / 1024.0;
         ai::baseline::update_baseline(&mut baseline_store, &g.name, mem_mb, g.total_cpu as f64);
     }
-    let _ = ai::baseline::save_baselines(&baseline_store);
+    if baseline_result.writable {
+        let _ = ai::baseline::save_baselines(&baseline_store);
+    }
 
     crate::renderer::render_status(&system, &grouped, &alerts);
 }
@@ -443,15 +446,18 @@ async fn run_search(query: &str, refresh: bool) {
         .and_then(|p| p.exe_path.clone());
 
     // Update baseline
-    let mut baseline_store = ai::baseline::load_baselines();
+    let baseline_result = ai::baseline::load_baselines();
+    let mut baseline_store = baseline_result.store;
     ai::baseline::update_baseline(&mut baseline_store, process_name, memory_mb, cpu);
-    let _ = ai::baseline::save_baselines(&baseline_store);
+    if baseline_result.writable {
+        let _ = ai::baseline::save_baselines(&baseline_store);
+    }
     let baseline_summary = ai::baseline::get_baseline_summary(&baseline_store, process_name);
 
     // Check cache
-    let kb = ai::knowledge::load_knowledge();
+    let kb_result = ai::knowledge::load_knowledge();
     if !refresh {
-        if let Some(cached) = ai::knowledge::lookup(&kb, process_name) {
+        if let Some(cached) = ai::knowledge::lookup(&kb_result.kb, process_name) {
             crate::display_search_result(
                 process_name,
                 cached,
@@ -568,9 +574,12 @@ async fn run_search(query: &str, refresh: bool) {
                         advice: json["advice"].as_str().unwrap_or("").to_string(),
                         updated: chrono::Local::now().format("%Y-%m-%d").to_string(),
                     };
-                    let mut kb = ai::knowledge::load_knowledge();
-                    ai::knowledge::upsert(&mut kb, process_name, knowledge.clone());
-                    let _ = ai::knowledge::save_knowledge(&kb);
+                    let kb_save_result = ai::knowledge::load_knowledge();
+                    if kb_save_result.writable {
+                        let mut kb = kb_save_result.kb;
+                        ai::knowledge::upsert(&mut kb, process_name, knowledge.clone());
+                        let _ = ai::knowledge::save_knowledge(&kb);
+                    }
                     crate::display_search_result(
                         process_name,
                         &knowledge,

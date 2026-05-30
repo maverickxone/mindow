@@ -29,15 +29,43 @@ pub fn baseline_path() -> PathBuf {
     home.join(".mindow").join("baselines.json")
 }
 
-/// Load baselines from disk
-pub fn load_baselines() -> BaselineStore {
+/// Result of loading data from disk, with write-safety flag.
+pub struct LoadResult {
+    pub store: BaselineStore,
+    /// If true, the data was loaded cleanly (or file didn't exist).
+    /// If false, the file was corrupted — saving would overwrite corrupt data.
+    pub writable: bool,
+}
+
+/// Load baselines from disk.
+/// If the file doesn't exist, returns an empty writable store.
+/// If the file exists but is corrupted, returns an empty store with writable=false
+/// and prints a warning to stderr.
+pub fn load_baselines() -> LoadResult {
     let path = baseline_path();
     if !path.exists() {
-        return BaselineStore::default();
+        return LoadResult { store: BaselineStore::default(), writable: true };
     }
     match fs::read_to_string(&path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-        Err(_) => BaselineStore::default(),
+        Ok(content) => {
+            match serde_json::from_str(&content) {
+                Ok(store) => LoadResult { store, writable: true },
+                Err(e) => {
+                    eprintln!(
+                        "Warning: baselines.json is corrupted ({}). Using empty defaults. File NOT overwritten.",
+                        e
+                    );
+                    LoadResult { store: BaselineStore::default(), writable: false }
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "Warning: Failed to read baselines.json ({}). Using empty defaults. File NOT overwritten.",
+                e
+            );
+            LoadResult { store: BaselineStore::default(), writable: false }
+        }
     }
 }
 

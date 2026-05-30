@@ -1,6 +1,6 @@
 [package]
 name = "mindow-core"
-version = "0.5.0"
+version = "0.9.3"
 edition = "2021"
 description = "Core library for Mindow: collector, filter, rule engine, and data types"
 

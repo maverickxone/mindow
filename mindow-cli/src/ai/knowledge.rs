@@ -27,15 +27,43 @@ pub fn knowledge_path() -> PathBuf {
     home.join(".mindow").join("knowledge.json")
 }
 
-/// Load knowledge base from disk. Returns empty if file doesn't exist.
-pub fn load_knowledge() -> KnowledgeBase {
+/// Result of loading data from disk, with write-safety flag.
+pub struct KnowledgeLoadResult {
+    pub kb: KnowledgeBase,
+    /// If true, the data was loaded cleanly (or file didn't exist).
+    /// If false, the file was corrupted — saving would overwrite corrupt data.
+    pub writable: bool,
+}
+
+/// Load knowledge base from disk.
+/// If the file doesn't exist, returns an empty writable knowledge base.
+/// If the file exists but is corrupted, returns empty with writable=false
+/// and prints a warning to stderr.
+pub fn load_knowledge() -> KnowledgeLoadResult {
     let path = knowledge_path();
     if !path.exists() {
-        return KnowledgeBase::default();
+        return KnowledgeLoadResult { kb: KnowledgeBase::default(), writable: true };
     }
     match fs::read_to_string(&path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-        Err(_) => KnowledgeBase::default(),
+        Ok(content) => {
+            match serde_json::from_str(&content) {
+                Ok(kb) => KnowledgeLoadResult { kb, writable: true },
+                Err(e) => {
+                    eprintln!(
+                        "Warning: knowledge.json is corrupted ({}). Using empty defaults. File NOT overwritten.",
+                        e
+                    );
+                    KnowledgeLoadResult { kb: KnowledgeBase::default(), writable: false }
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "Warning: Failed to read knowledge.json ({}). Using empty defaults. File NOT overwritten.",
+                e
+            );
+            KnowledgeLoadResult { kb: KnowledgeBase::default(), writable: false }
+        }
     }
 }
 

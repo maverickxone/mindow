@@ -96,11 +96,11 @@ fn unknown_flag_exits_with_error() {
         .failure();
 }
 
-// --- Test 8: No subcommand exits non-zero (clap requires a subcommand) ---
+// --- Test 8: No subcommand enters interactive mode and exits cleanly ---
 
 #[test]
-fn no_subcommand_exits_with_error() {
+fn no_subcommand_enters_interactive_mode() {
     mindow_cmd()
         .assert()
-        .failure();
+        .success();
 }

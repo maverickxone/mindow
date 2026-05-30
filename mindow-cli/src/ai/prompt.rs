@@ -91,8 +91,8 @@ fn format_processes_table(snapshot: &FilteredSnapshot) -> String {
     for proc in &snapshot.processes {
         let mem_mb = proc.sample.memory_bytes as f64 / 1024.0 / 1024.0;
         let status = match proc.path_status {
-            PathStatus::Standard => "OK",
-            PathStatus::Suspicious => "Suspicious",
+            PathStatus::System => "System",
+            PathStatus::User => "User",
             PathStatus::Unknown => "Unknown",
         };
         table.push_str(&format!(
@@ -157,15 +157,6 @@ fn format_alerts(alerts: &[Alert]) -> String {
                     let names: Vec<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
                     output.push_str(&names.join(", "));
                     output.push('\n');
-                }
-                Alert::SuspiciousPath {
-                    process_name,
-                    pid,
-                    path_status: _,
-                } => {
-                    output.push_str(&format!(
-                        "- [Suspicious Path] {process_name} (PID {pid})\n"
-                    ));
                 }
             }
         }
@@ -283,7 +274,7 @@ mod tests {
                     start_time: 0,
                     parent_pid: None,
                 },
-                path_status: PathStatus::Standard,
+                path_status: PathStatus::System,
             }],
         };
         let alerts = vec![Alert::HighCpu {

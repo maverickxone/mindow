@@ -63,7 +63,7 @@ fn make_snapshot_with_non_essential() -> FilteredSnapshot {
                 start_time: 1000,
                 parent_pid: None,
             },
-            path_status: PathStatus::Suspicious,
+            path_status: PathStatus::User,
         }],
     }
 }
@@ -141,7 +141,7 @@ proptest! {
             initial_ratio
         );
 
-        // Feed dead zone ratios — alert should remain active throughout
+        // Feed dead zone ratios �?alert should remain active throughout
         for ratio in &dead_zone_ratios {
             let system = make_system_with_ratio(*ratio);
             let alerts = engine.evaluate(&snapshot, &system);
@@ -220,17 +220,17 @@ fn arb_filtered_process(pid: u32, path_status: PathStatus) -> impl Strategy<Valu
         })
 }
 
-/// Strategy to generate a mix of Standard, Suspicious, and Unknown processes.
+/// Strategy to generate a mix of System, User, and Unknown processes.
 fn arb_mixed_processes() -> impl Strategy<Value = Vec<FilteredProcess>> {
     (1usize..20).prop_flat_map(|len| {
         let strategies: Vec<_> = (0..len)
             .map(|i| {
                 let pid = i as u32 + 1;
-                // Alternate: even PIDs are Standard, odd PIDs alternate between Suspicious and Unknown
+                // Alternate: even PIDs are System, odd PIDs alternate between User and Unknown
                 let status = if i % 3 == 0 {
-                    PathStatus::Standard
+                    PathStatus::System
                 } else if i % 3 == 1 {
-                    PathStatus::Suspicious
+                    PathStatus::User
                 } else {
                     PathStatus::Unknown
                 };
@@ -247,7 +247,7 @@ proptest! {
     /// When memory pressure is active (> 85%), the candidate process list in the
     /// alert SHALL:
     /// 1. Be sorted in strictly descending order by memory_bytes
-    /// 2. Contain exactly all non-essential processes (Suspicious or Unknown path)
+    /// 2. Contain exactly all non-essential processes (User or Unknown path)
     #[test]
     fn prop_memory_pressure_candidate_ordering(
         processes in arb_mixed_processes(),
@@ -279,7 +279,7 @@ proptest! {
             let expected_non_essential: Vec<&FilteredProcess> = processes
                 .iter()
                 .filter(|p| {
-                    matches!(p.path_status, PathStatus::Suspicious | PathStatus::Unknown)
+                    matches!(p.path_status, PathStatus::User | PathStatus::Unknown)
                 })
                 .collect();
 
@@ -318,9 +318,9 @@ proptest! {
         }
     }
 
-    /// Property 10 (supplementary): Candidate list should not include Standard processes.
+    /// Property 10 (supplementary): Candidate list should not include System processes.
     #[test]
-    fn prop_memory_pressure_candidates_exclude_standard(
+    fn prop_memory_pressure_candidates_exclude_system(
         processes in arb_mixed_processes(),
     ) {
         let config = Config::default();
@@ -337,18 +337,18 @@ proptest! {
         if let Some(Alert::MemoryPressure { candidates, .. }) =
             alerts.iter().find(|a| matches!(a, Alert::MemoryPressure { .. }))
         {
-            // Get PIDs of Standard processes
-            let standard_pids: std::collections::HashSet<u32> = processes
+            // Get PIDs of System processes
+            let system_pids: std::collections::HashSet<u32> = processes
                 .iter()
-                .filter(|p| p.path_status == PathStatus::Standard)
+                .filter(|p| p.path_status == PathStatus::System)
                 .map(|p| p.sample.pid)
                 .collect();
 
-            // No Standard process should be in candidates
+            // No System process should be in candidates
             for candidate in candidates {
                 prop_assert!(
-                    !standard_pids.contains(&candidate.pid),
-                    "Standard process pid={} should NOT be in memory pressure candidates",
+                    !system_pids.contains(&candidate.pid),
+                    "System process pid={} should NOT be in memory pressure candidates",
                     candidate.pid
                 );
             }

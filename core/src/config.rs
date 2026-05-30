@@ -1,4 +1,4 @@
-// Configuration and validation for Mindow v0.5.0
+// Configuration and validation for Mindow
 
 /// Default values for configuration fields.
 const DEFAULT_TOP_N: usize = 25;
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert_eq!(config.top_n, 10);
+        assert_eq!(config.top_n, 25);
         assert_eq!(config.interval_secs, 10);
         assert_eq!(config.cpu_threshold, 80.0);
         assert_eq!(config.mem_samples, 5);
@@ -179,7 +179,7 @@ mod tests {
             ..Default::default()
         };
         let result = validate_config(raw);
-        assert_eq!(result.config.top_n, 10);
+        assert_eq!(result.config.top_n, 25);
         assert_eq!(result.warnings.len(), 1);
         assert!(result.warnings[0].contains("top_n"));
     }

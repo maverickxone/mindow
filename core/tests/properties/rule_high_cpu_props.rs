@@ -16,7 +16,7 @@ use mindow_core::types::{
     SystemSample,
 };
 
-/// Helper: create a FilteredProcess with PathStatus::Standard to avoid SuspiciousPath alerts.
+/// Helper: create a FilteredProcess with PathStatus::System to avoid SuspiciousPath alerts.
 fn make_standard_process(pid: u32, name: &str, cpu: f32, mem: u64) -> FilteredProcess {
     FilteredProcess {
         sample: ProcessSample {
@@ -30,7 +30,7 @@ fn make_standard_process(pid: u32, name: &str, cpu: f32, mem: u64) -> FilteredPr
             start_time: 1000,
             parent_pid: None,
         },
-        path_status: PathStatus::Standard,
+        path_status: PathStatus::System,
     }
 }
 
@@ -64,7 +64,7 @@ proptest! {
         }
         let raw_values = &raw_values[..num_samples];
 
-        // Scale values to (threshold, 100.0] range — all strictly above threshold
+        // Scale values to (threshold, 100.0] range - all strictly above threshold
         let values: Vec<f32> = raw_values
             .iter()
             .map(|&r| cpu_threshold + 0.01 + r * (100.0 - cpu_threshold - 0.01))

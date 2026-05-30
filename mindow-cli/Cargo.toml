@@ -1,6 +1,6 @@
 [package]
 name = "mindow-cli"
-version = "1.0.0"
+version = "0.9.3"
 edition = "2021"
 description = "CLI binary for Mindow: status and watch commands"
 

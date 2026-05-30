@@ -22,7 +22,7 @@ use mindow_core::types::{
 fn safe_system_sample() -> SystemSample {
     SystemSample {
         total_memory: 64_000_000_000, // 64 GB
-        used_memory: 8_000_000_000,   // 8 GB (12.5% — well below 85%)
+        used_memory: 8_000_000_000,   // 8 GB (12.5% - well below 85%)
         per_core_cpu: vec![30.0, 40.0],
         battery: BatteryStatus::Unavailable,
     }
@@ -45,7 +45,7 @@ fn make_snapshot(pid: u32, name: &str, memory_bytes: u64) -> FilteredSnapshot {
                 start_time: 1000,
                 parent_pid: None,
             },
-            path_status: PathStatus::Standard,
+            path_status: PathStatus::System,
         }],
     }
 }

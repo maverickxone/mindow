@@ -5,28 +5,25 @@ use std::collections::HashSet;
 use crate::config::Config;
 use crate::types::{FilteredProcess, FilteredSnapshot, PathStatus, ProcessSample};
 
-/// Classifies a process executable path as Standard, Suspicious, or Unknown.
+/// Classifies a process executable path as System, User, or Unknown.
 ///
 /// - If `exe_path` is `None` → `PathStatus::Unknown` (likely a system process we can't read)
-/// - If `exe_path` starts with a known safe directory (case-insensitive) → `PathStatus::Standard`
-/// - Otherwise → `PathStatus::Suspicious`
+/// - If `exe_path` starts with a system directory (case-insensitive) → `PathStatus::System`
+/// - Otherwise → `PathStatus::User`
 ///
-/// Safe directories include: `C:\Windows\`, `C:\Program Files\`, `C:\Program Files (x86)\`,
-/// `C:\ProgramData\`, and common system service paths.
+/// System directories: `C:\Windows\`, `C:\Program Files\WindowsApps\`
+/// These are OS-managed paths that users cannot directly control.
 pub fn classify_path(exe_path: &Option<String>) -> PathStatus {
     match exe_path {
         None => PathStatus::Unknown,
         Some(path) => {
             let lower = path.to_lowercase();
             if lower.starts_with(r"c:\windows\")
-                || lower.starts_with(r"c:\program files\")
-                || lower.starts_with(r"c:\program files (x86)\")
-                || lower.starts_with(r"c:\programdata\")
                 || lower.starts_with(r"c:\program files\windowsapps\")
             {
-                PathStatus::Standard
+                PathStatus::System
             } else {
-                PathStatus::Suspicious
+                PathStatus::User
             }
         }
     }
@@ -100,42 +97,48 @@ mod tests {
     }
 
     #[test]
-    fn test_classify_path_windows_dir_is_standard() {
+    fn test_classify_path_windows_dir_is_system() {
         let path = Some(r"C:\Windows\System32\svchost.exe".to_string());
-        assert_eq!(classify_path(&path), PathStatus::Standard);
+        assert_eq!(classify_path(&path), PathStatus::System);
     }
 
     #[test]
-    fn test_classify_path_program_files_is_standard() {
+    fn test_classify_path_windowsapps_is_system() {
+        let path = Some(r"C:\Program Files\WindowsApps\Microsoft.WindowsCalculator\calc.exe".to_string());
+        assert_eq!(classify_path(&path), PathStatus::System);
+    }
+
+    #[test]
+    fn test_classify_path_program_files_is_user() {
         let path = Some(r"C:\Program Files\MyApp\app.exe".to_string());
-        assert_eq!(classify_path(&path), PathStatus::Standard);
+        assert_eq!(classify_path(&path), PathStatus::User);
     }
 
     #[test]
-    fn test_classify_path_program_files_x86_is_standard() {
+    fn test_classify_path_program_files_x86_is_user() {
         let path = Some(r"C:\Program Files (x86)\OldApp\app.exe".to_string());
-        assert_eq!(classify_path(&path), PathStatus::Standard);
+        assert_eq!(classify_path(&path), PathStatus::User);
+    }
+
+    #[test]
+    fn test_classify_path_appdata_is_user() {
+        let path = Some(r"C:\Users\Admin\AppData\Local\Google\Chrome\chrome.exe".to_string());
+        assert_eq!(classify_path(&path), PathStatus::User);
+    }
+
+    #[test]
+    fn test_classify_path_other_drive_is_user() {
+        let path = Some(r"D:\Tools\app.exe".to_string());
+        assert_eq!(classify_path(&path), PathStatus::User);
     }
 
     #[test]
     fn test_classify_path_case_insensitive() {
         let path = Some(r"c:\WINDOWS\explorer.exe".to_string());
-        assert_eq!(classify_path(&path), PathStatus::Standard);
+        assert_eq!(classify_path(&path), PathStatus::System);
 
-        let path2 = Some(r"C:\PROGRAM FILES\test.exe".to_string());
-        assert_eq!(classify_path(&path2), PathStatus::Standard);
-    }
-
-    #[test]
-    fn test_classify_path_non_standard_is_suspicious() {
-        let path = Some(r"D:\Tools\hack.exe".to_string());
-        assert_eq!(classify_path(&path), PathStatus::Suspicious);
-    }
-
-    #[test]
-    fn test_classify_path_user_dir_is_suspicious() {
-        let path = Some(r"C:\Users\Admin\Downloads\app.exe".to_string());
-        assert_eq!(classify_path(&path), PathStatus::Suspicious);
+        let path2 = Some(r"C:\PROGRAM FILES\WINDOWSAPPS\test.exe".to_string());
+        assert_eq!(classify_path(&path2), PathStatus::System);
     }
 
     // --- filter_snapshot tests ---
@@ -206,8 +209,8 @@ mod tests {
         let result = filter_snapshot(&processes, &config);
 
         let find = |pid: u32| result.processes.iter().find(|p| p.sample.pid == pid).unwrap();
-        assert_eq!(find(1).path_status, PathStatus::Standard);
-        assert_eq!(find(2).path_status, PathStatus::Suspicious);
+        assert_eq!(find(1).path_status, PathStatus::System);
+        assert_eq!(find(2).path_status, PathStatus::User);
         assert_eq!(find(3).path_status, PathStatus::Unknown);
     }
 

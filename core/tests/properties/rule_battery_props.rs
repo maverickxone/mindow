@@ -11,7 +11,7 @@
 //
 // For any system state that triggers a battery-warning alert, the alert's
 // offending process list SHALL contain exactly those non-essential processes
-// with CPU > 5% OR memory > 200 MB — no more, no fewer.
+// with CPU > 5% OR memory > 200 MB �?no more, no fewer.
 //
 // **Validates: Requirements 7.2**
 
@@ -38,8 +38,8 @@ fn arb_charging_state() -> impl Strategy<Value = ChargingState> {
 /// Strategy to generate an arbitrary PathStatus.
 fn arb_path_status() -> impl Strategy<Value = PathStatus> {
     prop_oneof![
-        Just(PathStatus::Standard),
-        Just(PathStatus::Suspicious),
+        Just(PathStatus::System),
+        Just(PathStatus::User),
         Just(PathStatus::Unknown),
     ]
 }
@@ -62,8 +62,8 @@ fn arb_filtered_process(pid: u32) -> impl Strategy<Value = FilteredProcess> {
                     disk_read_bytes: 0,
                     disk_write_bytes: 0,
                     exe_path: match &path_status {
-                        PathStatus::Standard => Some("C:\\Program Files\\app.exe".to_string()),
-                        PathStatus::Suspicious => Some("D:\\Games\\app.exe".to_string()),
+                        PathStatus::System => Some("C:\\Program Files\\app.exe".to_string()),
+                        PathStatus::User => Some("D:\\Games\\app.exe".to_string()),
                         PathStatus::Unknown => None,
                     },
                     start_time: 1000,
@@ -100,9 +100,9 @@ fn arb_system_sample() -> impl Strategy<Value = SystemSample> {
         })
 }
 
-/// Helper: determine if a process is non-essential (Suspicious or Unknown path).
+/// Helper: determine if a process is non-essential (User or Unknown path).
 fn is_non_essential(p: &FilteredProcess) -> bool {
-    matches!(p.path_status, PathStatus::Suspicious | PathStatus::Unknown)
+    matches!(p.path_status, PathStatus::User | PathStatus::Unknown)
 }
 
 /// Helper: extract battery warning alerts from a list of alerts.
@@ -251,7 +251,7 @@ fn arb_process_list_with_activator() -> impl Strategy<Value = Vec<FilteredProces
         "[a-z]{1,8}",
         5.1f32..100.0, // CPU > 5%
         0u64..500_000_000,
-        prop_oneof![Just(PathStatus::Suspicious), Just(PathStatus::Unknown)],
+        prop_oneof![Just(PathStatus::User), Just(PathStatus::Unknown)],
     )
         .prop_map(|(name, cpu, mem, path_status)| {
             FilteredProcess {
@@ -263,8 +263,8 @@ fn arb_process_list_with_activator() -> impl Strategy<Value = Vec<FilteredProces
                     disk_read_bytes: 0,
                     disk_write_bytes: 0,
                     exe_path: match &path_status {
-                        PathStatus::Standard => Some("C:\\Program Files\\app.exe".to_string()),
-                        PathStatus::Suspicious => Some("D:\\Games\\app.exe".to_string()),
+                        PathStatus::System => Some("C:\\Program Files\\app.exe".to_string()),
+                        PathStatus::User => Some("D:\\Games\\app.exe".to_string()),
                         PathStatus::Unknown => None,
                     },
                     start_time: 1000,
@@ -293,7 +293,7 @@ proptest! {
     ///
     /// For any system state that triggers a battery-warning alert, the alert's
     /// offending process list SHALL contain exactly those non-essential processes
-    /// with CPU > 5% OR memory > 200_000_000 bytes — no more, no fewer.
+    /// with CPU > 5% OR memory > 200_000_000 bytes �?no more, no fewer.
     ///
     /// **Validates: Requirements 7.2**
     #[test]
@@ -311,7 +311,7 @@ proptest! {
         let alerts = engine.evaluate(&snapshot, &system);
         let bw_alerts = battery_warnings(&alerts);
 
-        // This state is crafted to trigger — verify it did
+        // This state is crafted to trigger �?verify it did
         prop_assert!(
             bw_alerts.len() == 1,
             "Expected BatteryWarning to trigger with activator process, got {} alerts",

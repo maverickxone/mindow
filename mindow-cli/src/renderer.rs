@@ -33,7 +33,8 @@ pub fn render_watch_frame(
     let secs = elapsed.as_secs() % 60;
     println!(
         "  {}",
-        format!("MINDOW v0.5  |  Sample #{}  |  {}m {}s", sample_number, mins, secs)
+        format!("MINDOW v{}  |  Sample #{}  |  {}m {}s",
+            env!("CARGO_PKG_VERSION"), sample_number, mins, secs)
             .bold().cyan()
     );
     render_status(system, grouped, alerts);
@@ -113,13 +114,11 @@ fn render_processes(grouped: &[GroupedProcess]) {
         let cpu_pad = format!("{:>6.1}%", cpu);
         let mem_pad = format!("{:>9}", format_memory(mem));
 
-        // Color name by path status + memory size
+        // Color name by path status
         let name_c = match proc.path_status {
-            PathStatus::Suspicious => name_pad.yellow().to_string(),
-            PathStatus::Unknown => name_pad.dimmed().to_string(),
-            PathStatus::Standard => {
-                name_pad.bright_white().to_string()
-            }
+            PathStatus::System => name_pad.cyan().to_string(),
+            PathStatus::User => name_pad.bright_white().to_string(),
+            PathStatus::Unknown => name_pad.yellow().to_string(),
         };
 
         // Color CPU by intensity
@@ -134,11 +133,11 @@ fn render_processes(grouped: &[GroupedProcess]) {
             else if mem > 200_000_000 { mem_pad.white().to_string() }
             else { mem_pad.green().to_string() };
 
-        // Status
+        // Status tag
         let st = match proc.path_status {
-            PathStatus::Standard => "OK".green().bold().to_string(),
-            PathStatus::Suspicious => "(!)".yellow().bold().to_string(),
-            PathStatus::Unknown => "(?)".dimmed().to_string(),
+            PathStatus::System => "[S]".cyan().to_string(),
+            PathStatus::User => "[U]".bright_white().to_string(),
+            PathStatus::Unknown => "[?]".yellow().to_string(),
         };
 
         println!("  {} {} {}  {}", name_c, cpu_c, mem_c, st);
@@ -241,9 +240,6 @@ fn format_alert(alert: &Alert) -> String {
                 msg.push_str(&format!("\n       - {} (CPU {:.1}%)", p.name, p.cpu_percent));
             }
             msg
-        }
-        Alert::SuspiciousPath { process_name, pid, .. } => {
-            format!("[..] Suspicious: {} (PID {})", process_name, pid)
         }
     }
 }
