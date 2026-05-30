@@ -1,4 +1,5 @@
 mod ai;
+mod interactive;
 mod renderer;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -8,10 +9,10 @@ use mindow_core::filter::filter_snapshot;
 use mindow_core::rule_engine::RuleEngine;
 
 #[derive(Parser)]
-#[command(name = "mindow", version = "1.0.0", about = "Windows system resource analyzer")]
+#[command(name = "mindow", version = "0.9.2", about = "Windows system resource analyzer")]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 
     /// Number of top processes to display (default: 10)
     #[arg(long, global = true)]
@@ -47,7 +48,7 @@ struct Cli {
 }
 
 #[derive(Clone, ValueEnum)]
-enum SortField {
+pub enum SortField {
     Mem,
     Cpu,
     Name,
@@ -60,23 +61,23 @@ enum Commands {
     Status,
     /// Continuously monitor system over time
     Watch,
-    /// AI 分析报告
+    /// AI analysis report
     Report {
-        /// 报告语言: cn | en
+        /// Report language: cn | en
         #[arg(long)]
         lang: Option<String>,
     },
-    /// 配置管理
+    /// Configuration management
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    /// 分析指定进程
+    /// Analyze a specific process
     Search {
-        /// 进程名称或 PID
+        /// Process name or PID
         query: String,
     },
-    /// 基线管理
+    /// Baseline management
     Baseline {
         #[command(subcommand)]
         action: BaselineAction,
@@ -85,24 +86,24 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum BaselineAction {
-    /// 显示已学习的进程基线
+    /// Show learned process baselines
     Show,
-    /// 重置基线数据
+    /// Reset baseline data
     Reset,
 }
 
 #[derive(Subcommand)]
 enum ConfigAction {
-    /// 设置配置项: mindow config set <key> <value>
+    /// Set config field: mindow config set <key> <value>
     Set {
-        /// 配置字段名 (provider, model, api_key, base_url, language)
+        /// Config field name (provider, model, api_key, base_url, language)
         key: String,
-        /// 配置值
+        /// Config value
         value: String,
     },
-    /// 显示当前配置
+    /// Show current configuration
     Show,
-    /// 交互式初始化配置
+    /// Interactive configuration setup
     Init,
 }
 
@@ -143,11 +144,15 @@ async fn main() {
 
     // Dispatch to the appropriate command
     match cli.command {
-        Commands::Status => {
+        None => {
+            // No subcommand -> enter interactive mode
+            interactive::run_interactive().await;
+        }
+        Some(Commands::Status) => {
             use std::thread;
             use std::time::Duration;
 
-            // 1. Create collector — initial refresh seeds CPU baseline
+            // 1. Create collector -- initial refresh seeds CPU baseline
             let mut collector = SysinfoCollector::new();
 
             // 2. Wait briefly so the second refresh produces accurate CPU delta
@@ -181,7 +186,7 @@ async fn main() {
             // 9. Render output
             renderer::render_status(&system, &grouped, &alerts);
         }
-        Commands::Watch => {
+        Some(Commands::Watch) => {
             use std::sync::atomic::{AtomicBool, Ordering};
             use std::sync::Arc;
             use std::thread;
@@ -251,7 +256,7 @@ async fn main() {
 
             println!("\nWatch mode stopped.");
         }
-        Commands::Report { lang } => {
+        Some(Commands::Report { lang }) => {
             use std::io::{self, Write};
             use std::thread;
             use std::time::Duration;
@@ -268,8 +273,8 @@ async fn main() {
 
             // 2. Check API key
             if ai_config.api_key.is_empty() {
-                eprintln!("Error: API 密钥未配置");
-                eprintln!("Hint:  运行 `mindow config set api_key <your-key>` 设置密钥");
+                eprintln!("Error: API key not configured");
+                eprintln!("Hint: Run `mindow config set api_key <your-key>` to set the API key");
                 return;
             }
 
@@ -363,7 +368,7 @@ async fn main() {
                 }
             }
         }
-        Commands::Config { action } => {
+        Some(Commands::Config { action }) => {
             match action {
                 ConfigAction::Set { key, value } => {
                     match ai::config::set_config_field(&key, &value) {
@@ -442,7 +447,7 @@ async fn main() {
                 }
             }
         }
-        Commands::Search { query } => {
+        Some(Commands::Search { query }) => {
             use std::thread;
             use std::time::Duration;
             use indicatif::ProgressBar;
@@ -513,7 +518,7 @@ async fn main() {
                 return;
             }
 
-            // 5. No cache — call AI
+            // 5. No cache -- call AI
             let ai_config = match ai::config::load_config() {
                 Ok(c) => c,
                 Err(e) => {
@@ -523,8 +528,8 @@ async fn main() {
             };
 
             if ai_config.api_key.is_empty() {
-                eprintln!("Error: API 密钥未配置");
-                eprintln!("Hint:  运行 `mindow config set api_key <your-key>` 设置密钥");
+                eprintln!("Error: API key not configured");
+                eprintln!("Hint: Run `mindow config set api_key <your-key>` to set the API key");
                 return;
             }
 
@@ -612,7 +617,7 @@ async fn main() {
                             let mut kb = ai::knowledge::load_knowledge();
                             ai::knowledge::upsert(&mut kb, process_name, knowledge.clone());
                             if let Err(e) = ai::knowledge::save_knowledge(&kb) {
-                                eprintln!("Warning: 无法保存知识库: {}", e);
+                                eprintln!("Warning: Failed to save knowledge base: {}", e);
                             }
 
                             // Display result with GROUPED totals
@@ -625,11 +630,11 @@ async fn main() {
                     }
                 }
                 Err(e) => {
-                    eprintln!("AI 分析失败: {}", e);
+                    eprintln!("AI analysis failed: {}", e);
                 }
             }
         }
-        Commands::Baseline { action } => {
+        Some(Commands::Baseline { action }) => {
             use colored::Colorize;
             match action {
                 BaselineAction::Show => {
@@ -663,7 +668,7 @@ async fn main() {
     }
 }
 
-/// A grouped process entry — merges all same-name processes.
+/// A grouped process entry -- merges all same-name processes.
 pub struct GroupedProcess {
     pub name: String,
     pub count: usize,
@@ -673,7 +678,7 @@ pub struct GroupedProcess {
 }
 
 /// Group same-name processes, summing CPU and memory.
-fn group_processes(snapshot: &mindow_core::types::FilteredSnapshot) -> Vec<GroupedProcess> {
+pub fn group_processes(snapshot: &mindow_core::types::FilteredSnapshot) -> Vec<GroupedProcess> {
     use std::collections::HashMap;
     use mindow_core::types::PathStatus;
 
@@ -705,7 +710,7 @@ fn group_processes(snapshot: &mindow_core::types::FilteredSnapshot) -> Vec<Group
 }
 
 /// Sort grouped processes by the given field.
-fn sort_grouped(grouped: &mut Vec<GroupedProcess>, field: &SortField) {
+pub fn sort_grouped(grouped: &mut Vec<GroupedProcess>, field: &SortField) {
     match field {
         SortField::Mem => {
             grouped.sort_by(|a, b| b.total_memory.cmp(&a.total_memory));
@@ -729,7 +734,7 @@ fn sort_grouped(grouped: &mut Vec<GroupedProcess>, field: &SortField) {
 }
 
 /// Display a formatted search result for a process.
-fn display_search_result(
+pub fn display_search_result(
     process_name: &str,
     knowledge: &ai::knowledge::ProcessKnowledge,
     current_memory_mb: f64,
