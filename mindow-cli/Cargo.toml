@@ -23,6 +23,9 @@ chrono = "0.4"
 dirs = "5"
 async-trait = "0.1"
 futures-util = "0.3"
+dialoguer = "0.11"
+indicatif = "0.17"
+urlencoding = "2"
 
 [dev-dependencies]
 proptest = "1"

@@ -71,8 +71,24 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    /// Update mindow to the latest version from source
-    Update,
+    /// 分析指定进程
+    Search {
+        /// 进程名称或 PID
+        query: String,
+    },
+    /// 基线管理
+    Baseline {
+        #[command(subcommand)]
+        action: BaselineAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum BaselineAction {
+    /// 显示已学习的进程基线
+    Show,
+    /// 重置基线数据
+    Reset,
 }
 
 #[derive(Subcommand)]
@@ -154,7 +170,15 @@ async fn main() {
             let mut engine = RuleEngine::new(config);
             let alerts = engine.evaluate(&snapshot, &system);
 
-            // 8. Render output
+            // 8. Update baselines with GROUPED data (totals per process name)
+            let mut baseline_store = ai::baseline::load_baselines();
+            for g in &grouped {
+                let mem_mb = g.total_memory as f64 / 1024.0 / 1024.0;
+                ai::baseline::update_baseline(&mut baseline_store, &g.name, mem_mb, g.total_cpu as f64);
+            }
+            let _ = ai::baseline::save_baselines(&baseline_store);
+
+            // 9. Render output
             renderer::render_status(&system, &grouped, &alerts);
         }
         Commands::Watch => {
@@ -194,6 +218,14 @@ async fn main() {
 
                 // Evaluate (RuleEngine accumulates trend data across iterations)
                 let alerts = engine.evaluate(&snapshot, &system);
+
+                // Update baselines with GROUPED data
+                let mut baseline_store = ai::baseline::load_baselines();
+                for g in &grouped {
+                    let mem_mb = g.total_memory as f64 / 1024.0 / 1024.0;
+                    ai::baseline::update_baseline(&mut baseline_store, &g.name, mem_mb, g.total_cpu as f64);
+                }
+                let _ = ai::baseline::save_baselines(&baseline_store);
 
                 // Clear screen for fresh frame
                 print!("\x1B[2J\x1B[1;1H");
@@ -410,19 +442,222 @@ async fn main() {
                 }
             }
         }
-        Commands::Update => {
-            use std::process::Command;
-            println!("Updating mindow...");
-            let source_dir = env!("CARGO_MANIFEST_DIR");
-            let parent = std::path::Path::new(source_dir).parent().unwrap_or(std::path::Path::new("."));
-            let status = Command::new("cargo")
-                .args(["install", "--path", "mindow-cli", "--force"])
-                .current_dir(parent)
-                .status();
-            match status {
-                Ok(s) if s.success() => println!("mindow updated successfully."),
-                Ok(s) => eprintln!("Update failed with exit code: {}", s),
-                Err(e) => eprintln!("Failed to run cargo: {}", e),
+        Commands::Search { query } => {
+            use std::thread;
+            use std::time::Duration;
+            use indicatif::ProgressBar;
+            use ai::client::{AiClient, AiClientConfig, AiError, Provider, StreamCallback};
+
+            // 1. Collect processes (with 500ms delay for CPU accuracy)
+            let mut collector = SysinfoCollector::new();
+            thread::sleep(Duration::from_millis(500));
+            let processes = collector.collect_processes();
+
+            // 2. Group/merge same-name processes using filter + group
+            let snapshot = filter_snapshot(&processes, &config);
+            let grouped = group_processes(&snapshot);
+
+            // 3. Match query against GROUPED results
+            let matched_group = grouped.iter().find(|g| {
+                // Match by name substring (case-insensitive)
+                g.name.to_lowercase().contains(&query.to_lowercase())
+            });
+
+            // Also try PID match against raw processes if no group match
+            let matched_group = match matched_group {
+                Some(g) => Some(g),
+                None => {
+                    if let Ok(pid) = query.parse::<u32>() {
+                        // Find which group contains this PID
+                        let proc = processes.iter().find(|p| p.pid == pid);
+                        if let Some(proc) = proc {
+                            grouped.iter().find(|g| g.name.to_lowercase() == proc.name.to_lowercase())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+            };
+
+            let matched_group = match matched_group {
+                Some(g) => g,
+                None => {
+                    eprintln!("No matching process found: {}", query);
+                    return;
+                }
+            };
+
+            let process_name = &matched_group.name;
+            let memory_mb = matched_group.total_memory as f64 / 1024.0 / 1024.0;
+            let cpu = matched_group.total_cpu as f64;
+            let process_count = matched_group.count;
+
+            // Find exe_path from the first matching raw process (for AI context)
+            let exe_path = processes.iter()
+                .find(|p| p.name.to_lowercase() == process_name.to_lowercase())
+                .and_then(|p| p.exe_path.clone());
+
+            // 3b. Update baseline with GROUPED totals
+            let mut baseline_store = ai::baseline::load_baselines();
+            ai::baseline::update_baseline(&mut baseline_store, process_name, memory_mb, cpu);
+            let _ = ai::baseline::save_baselines(&baseline_store);
+
+            // 4. Check knowledge base cache
+            let kb = ai::knowledge::load_knowledge();
+            if let Some(cached) = ai::knowledge::lookup(&kb, process_name) {
+                // Display cached result with GROUPED totals
+                let baseline_info = ai::baseline::get_baseline_summary(&baseline_store, process_name);
+                display_search_result(process_name, cached, memory_mb, process_count, true, &baseline_info);
+                return;
+            }
+
+            // 5. No cache — call AI
+            let ai_config = match ai::config::load_config() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error: {}\nHint: Run `mindow config init` to set up.", e);
+                    return;
+                }
+            };
+
+            if ai_config.api_key.is_empty() {
+                eprintln!("Error: API 密钥未配置");
+                eprintln!("Hint:  运行 `mindow config set api_key <your-key>` 设置密钥");
+                return;
+            }
+
+            // Load baseline for context
+            let baseline_summary = ai::baseline::get_baseline_summary(&baseline_store, process_name);
+
+            // Web search for context
+            let search_context = ai::websearch::search_process_info(process_name).await;
+
+            // Build prompt
+            let system_prompt = "You are a Windows process analyst. Analyze the given process information and identify what it is.".to_string();
+            let user_prompt = ai::prompt::build_search_prompt(
+                process_name,
+                &exe_path,
+                memory_mb,
+                cpu,
+                process_count,
+                &baseline_summary,
+                &search_context,
+            );
+
+            // Show spinner
+            let spinner = ProgressBar::new_spinner();
+            spinner.set_message("Analyzing...");
+            spinner.enable_steady_tick(Duration::from_millis(100));
+
+            // Create AI client
+            let provider = if ai_config.provider == "claude" {
+                Provider::Claude
+            } else {
+                Provider::OpenAI
+            };
+
+            let client_config = AiClientConfig {
+                provider: provider.clone(),
+                model: ai_config.model.clone(),
+                api_key: ai_config.api_key.clone(),
+                base_url: ai_config.base_url.clone(),
+                timeout_secs: 30,
+            };
+
+            // Accumulate response
+            struct SearchCallback {
+                accumulated: String,
+            }
+            impl StreamCallback for SearchCallback {
+                fn on_delta(&mut self, text: &str) {
+                    self.accumulated.push_str(text);
+                }
+                fn on_complete(&mut self) {}
+                fn on_error(&mut self, _error: &AiError) {}
+            }
+
+            let mut callback = SearchCallback { accumulated: String::new() };
+
+            let result = match provider {
+                Provider::OpenAI => {
+                    let client = ai::client::OpenAiClient::new(client_config);
+                    client.stream_completion(&system_prompt, &user_prompt, &mut callback).await
+                }
+                Provider::Claude => {
+                    let client = ai::client::ClaudeClient::new(client_config);
+                    client.stream_completion(&system_prompt, &user_prompt, &mut callback).await
+                }
+            };
+
+            spinner.finish_and_clear();
+
+            match result {
+                Ok(()) => {
+                    // Try to parse JSON response
+                    let response_text = callback.accumulated.trim().to_string();
+                    match serde_json::from_str::<serde_json::Value>(&response_text) {
+                        Ok(json) => {
+                            let knowledge = ai::knowledge::ProcessKnowledge {
+                                description: json["description"].as_str().unwrap_or("").to_string(),
+                                category: json["category"].as_str().unwrap_or("").to_string(),
+                                typical_memory: json["typical_memory"].as_str().unwrap_or("").to_string(),
+                                risk: json["risk"].as_str().unwrap_or("safe").to_string(),
+                                advice: json["advice"].as_str().unwrap_or("").to_string(),
+                                updated: chrono::Local::now().format("%Y-%m-%d").to_string(),
+                            };
+
+                            // Save to knowledge base
+                            let mut kb = ai::knowledge::load_knowledge();
+                            ai::knowledge::upsert(&mut kb, process_name, knowledge.clone());
+                            if let Err(e) = ai::knowledge::save_knowledge(&kb) {
+                                eprintln!("Warning: 无法保存知识库: {}", e);
+                            }
+
+                            // Display result with GROUPED totals
+                            display_search_result(process_name, &knowledge, memory_mb, process_count, false, &baseline_summary);
+                        }
+                        Err(_) => {
+                            // JSON parsing failed, display raw response
+                            println!("\n{}", response_text);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("AI 分析失败: {}", e);
+                }
+            }
+        }
+        Commands::Baseline { action } => {
+            use colored::Colorize;
+            match action {
+                BaselineAction::Show => {
+                    let store = ai::baseline::load_baselines();
+                    if store.entries.is_empty() {
+                        println!("No baseline data yet. Run `mindow status` or `mindow watch` to start learning.");
+                        return;
+                    }
+                    println!("{}", "=".repeat(60));
+                    println!("  {}", "BASELINES".bold().cyan());
+                    println!("{}", "-".repeat(60));
+                    let mut entries: Vec<_> = store.entries.iter().collect();
+                    entries.sort_by(|a, b| b.1.avg_memory_mb.partial_cmp(&a.1.avg_memory_mb).unwrap_or(std::cmp::Ordering::Equal));
+                    for (name, entry) in entries {
+                        println!(
+                            "  {:<24} Avg: {:>6.0} MB  Max: {:>6.0} MB  CPU: {:>5.1}%  ({} samples)",
+                            name, entry.avg_memory_mb, entry.max_memory_mb, entry.avg_cpu, entry.samples
+                        );
+                    }
+                    println!("{}", "=".repeat(60));
+                }
+                BaselineAction::Reset => {
+                    let store = ai::baseline::BaselineStore::default();
+                    match ai::baseline::save_baselines(&store) {
+                        Ok(()) => println!("Baselines reset. Will re-learn from next status/watch run."),
+                        Err(e) => eprintln!("Error: {}", e),
+                    }
+                }
             }
         }
     }
@@ -491,4 +726,71 @@ fn sort_grouped(grouped: &mut Vec<GroupedProcess>, field: &SortField) {
             grouped.sort_by(|a, b| b.total_memory.cmp(&a.total_memory));
         }
     }
+}
+
+/// Display a formatted search result for a process.
+fn display_search_result(
+    process_name: &str,
+    knowledge: &ai::knowledge::ProcessKnowledge,
+    current_memory_mb: f64,
+    process_count: usize,
+    is_cached: bool,
+    baseline_summary: &Option<String>,
+) {
+    use colored::Colorize;
+
+    let border_len: usize = 52;
+    let header = format!("-- {} ({} instances) ", process_name, process_count);
+    let top_border = format!("+{}{}+",
+        header,
+        "-".repeat(border_len.saturating_sub(header.len() + 2))
+    );
+    let bottom_border = format!("+{}+", "-".repeat(border_len - 2));
+
+    // Risk color
+    let risk_colored = match knowledge.risk.as_str() {
+        "safe" => "safe".green().bold().to_string(),
+        "caution" => "caution".yellow().bold().to_string(),
+        "suspicious" => "suspicious".red().bold().to_string(),
+        other => other.to_string(),
+    };
+
+    // Memory display with color based on size
+    let mem_display = if current_memory_mb >= 1024.0 {
+        format!("{:.1} GB", current_memory_mb / 1024.0)
+    } else {
+        format!("{:.0} MB", current_memory_mb)
+    };
+    let mem_colored = if current_memory_mb >= 2048.0 {
+        mem_display.red().bold().to_string()
+    } else if current_memory_mb >= 512.0 {
+        mem_display.yellow().to_string()
+    } else {
+        mem_display.green().to_string()
+    };
+
+    // Cache tag
+    let cache_tag = if is_cached {
+        format!(" {}", "[cached]".dimmed())
+    } else {
+        String::new()
+    };
+
+    // Process name styled
+    let name_styled = process_name.bold().bright_white().to_string();
+
+    println!("{}{}", top_border.cyan(), cache_tag);
+    println!("{} {:<38} {}", "| Name:".bold().white(), name_styled, "|".cyan());
+    println!("{} {:<38} {}", "| Type:".bold().white(), knowledge.category.cyan(), "|".cyan());
+    println!("{} {:<38} {}", "| Desc:".bold().white(), knowledge.description, "|".cyan());
+    println!("{} {:<38} {}", "| Mem Range:".bold().white(), knowledge.typical_memory, "|".cyan());
+    println!("{} {:<38} {}", "| Current:".bold().white(), mem_colored, "|".cyan());
+    println!("{} {:<38} {}", "| Instances:".bold().white(), format!("{}", process_count).bright_white(), "|".cyan());
+    println!("{} {:<38} {}", "| Risk:".bold().white(), risk_colored, "|".cyan());
+    let advice_str = if knowledge.advice.is_empty() { "none".to_string() } else { knowledge.advice.clone() };
+    println!("{} {:<38} {}", "| Advice:".bold().white(), advice_str, "|".cyan());
+    if let Some(baseline) = baseline_summary {
+        println!("{} {:<38} {}", "| Baseline:".bold().white(), baseline.dimmed(), "|".cyan());
+    }
+    println!("{}", bottom_border.cyan());
 }

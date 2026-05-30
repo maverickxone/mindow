@@ -173,6 +173,53 @@ fn format_alerts(alerts: &[Alert]) -> String {
     output
 }
 
+/// Build the AI prompt for process search.
+/// Requests response in English to avoid encoding issues across terminal types.
+pub fn build_search_prompt(
+    process_name: &str,
+    exe_path: &Option<String>,
+    memory_mb: f64,
+    cpu: f64,
+    process_count: usize,
+    baseline_summary: &Option<String>,
+    web_search_context: &Option<String>,
+) -> String {
+    let mut prompt = format!(
+        "I see a process called \"{}\" (running {} instances)\n\
+         Path: {}\n\
+         Total memory: {:.0} MB\n\
+         Total CPU: {:.1}%\n\
+         {}\n",
+        process_name,
+        process_count,
+        exe_path.as_deref().unwrap_or("unknown"),
+        memory_mb,
+        cpu,
+        baseline_summary.as_deref().unwrap_or("(no historical data)")
+    );
+
+    if let Some(context) = web_search_context {
+        prompt.push_str(&format!(
+            "\nWeb search results about this process:\n{}\n",
+            context
+        ));
+    }
+
+    prompt.push_str(
+        "\nTell me:\n\
+         1. What is this software? (one sentence)\n\
+         2. Category (e.g. Browser, IDE, System Service, Game, etc.)\n\
+         3. Typical memory usage range\n\
+         4. Risk level: safe / caution / suspicious\n\
+         5. Any advice\n\n\
+         Reply in this JSON format ONLY:\n\
+         {\"description\": \"...\", \"category\": \"...\", \"typical_memory\": \"...\", \"risk\": \"safe|caution|suspicious\", \"advice\": \"...\"}\n\
+         Output JSON only, nothing else.",
+    );
+
+    prompt
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
