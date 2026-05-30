@@ -2,7 +2,7 @@ use colored::Colorize;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
-use crate::ai;
+use mindow_ai as ai;
 use mindow_core::collector::{Collect, SysinfoCollector};
 use mindow_core::config::{validate_config, RawConfig};
 use mindow_core::filter::filter_snapshot;

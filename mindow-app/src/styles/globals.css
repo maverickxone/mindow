@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Semi-transparent backgrounds for Mica/Acrylic effect */
+  --bg-primary: rgba(26, 27, 30, 0.92);
+  --bg-secondary: rgba(37, 38, 43, 0.90);
+  --bg-tertiary: rgba(44, 46, 51, 0.88);
+  --text-primary: #e4e5e7;
+  --text-secondary: #909296;
+  --text-muted: #5c5f66;
+  --border-color: rgba(55, 58, 64, 0.7);
+  --accent-safe: #4ade80;
+  --accent-warning: #fbbf24;
+  --accent-danger: #ef4444;
+  --accent-info: #22d3ee;
+  --tab-active: #22d3ee;
+  --tab-inactive: #909296;
+
+  /* Path status safety colors */
+  --status-safe: #4ade80;
+  --status-caution: #fbbf24;
+  --status-unknown: #94a3b8;
+
+  /* Mica overlay for frosted glass depth */
+  --mica-overlay: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] {
+  /* Semi-transparent backgrounds for light Mica effect */
+  --bg-primary: rgba(255, 255, 255, 0.88);
+  --bg-secondary: rgba(248, 249, 250, 0.85);
+  --bg-tertiary: rgba(241, 243, 245, 0.82);
+  --text-primary: #1a1b1e;
+  --text-secondary: #495057;
+  --text-muted: #adb5bd;
+  --border-color: rgba(222, 226, 230, 0.6);
+  --accent-safe: #16a34a;
+  --accent-warning: #d97706;
+  --accent-danger: #dc2626;
+  --accent-info: #0891b2;
+  --tab-active: #0891b2;
+  --tab-inactive: #6b7280;
+
+  /* Path status safety colors for light theme */
+  --status-safe: #16a34a;
+  --status-caution: #d97706;
+  --status-unknown: #64748b;
+
+  /* Mica overlay for light theme */
+  --mica-overlay: rgba(255, 255, 255, 0.4);
+}
+
+html, body {
+  background-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  user-select: none;
+  /* Ensure subpixel font rendering for readability on glass */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Smooth transitions for theme switching and data updates (300ms) */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Data value transition — numeric values animate smoothly */
+.data-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mica/Acrylic glass card effect */
+.glass-card {
+  background: var(--bg-secondary);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Toast slide-in animation */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+/* Side panel slide animation */
+@keyframes panel-slide-in {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-panel-in {
+  animation: panel-slide-in 0.3s ease-out;
+}
+
+/* Compact information density utilities */
+@layer utilities {
+  .compact-row {
+    @apply py-0.5 px-2 text-xs leading-tight;
+  }
+
+  .compact-card {
+    @apply p-2 rounded-md;
+  }
+}

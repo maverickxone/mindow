@@ -1,4 +1,4 @@
-mod ai;
+use mindow_ai as ai;
 mod interactive;
 mod renderer;
 

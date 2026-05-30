@@ -194,17 +194,17 @@ impl AiClient for ClaudeClient {
                 let line = buffer[..newline_pos].trim_end_matches('\r').to_string();
                 buffer = buffer[newline_pos + 1..].to_string();
 
-                let event = super::sse::parse_sse_line(&line, &Provider::Claude);
+                let event = crate::sse::parse_sse_line(&line, &Provider::Claude);
                 match event {
-                    super::sse::SseEvent::Delta(text) => {
+                    crate::sse::SseEvent::Delta(text) => {
                         accumulated.push_str(&text);
                         callback.on_delta(&text);
                     }
-                    super::sse::SseEvent::Done => {
+                    crate::sse::SseEvent::Done => {
                         callback.on_complete();
                         return Ok(());
                     }
-                    super::sse::SseEvent::Skip => {}
+                    crate::sse::SseEvent::Skip => {}
                 }
             }
         }
@@ -304,17 +304,17 @@ impl AiClient for OpenAiClient {
                 let line = buffer[..newline_pos].trim_end_matches('\r').to_string();
                 buffer = buffer[newline_pos + 1..].to_string();
 
-                let event = super::sse::parse_sse_line(&line, &Provider::OpenAI);
+                let event = crate::sse::parse_sse_line(&line, &Provider::OpenAI);
                 match event {
-                    super::sse::SseEvent::Delta(text) => {
+                    crate::sse::SseEvent::Delta(text) => {
                         accumulated.push_str(&text);
                         callback.on_delta(&text);
                     }
-                    super::sse::SseEvent::Done => {
+                    crate::sse::SseEvent::Done => {
                         callback.on_complete();
                         return Ok(());
                     }
-                    super::sse::SseEvent::Skip => {}
+                    crate::sse::SseEvent::Skip => {}
                 }
             }
         }

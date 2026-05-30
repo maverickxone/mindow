@@ -1,129 +1,301 @@
 # Mindow
 
-> Mind + Window — AI 驱动的 Windows 系统资源分析工具
->
-> 单个 exe，零依赖，纯 Rust 实现。
+> Mind + Window — Windows 系统资源监控 + AI 分析工具
 
-## 特性
+单个 exe，零依赖运行。实时查看进程资源占用，AI 帮你分析哪些进程异常、该不该关。
 
-- **进程监控** — 内存、CPU 实时采集，同名进程自动合并（像任务管理器一样）
-- **规则引擎** — 内存泄漏检测、持续高 CPU 告警、内存压力告警、低电量智能建议
-- **AI 分析** — 可接入 OpenAI / Claude / DeepSeek 等 API，自然语言解释系统状态
-- **进程搜索** — `mindow search chrome`，AI 告诉你这个进程是什么、正不正常
-- **知识库** — 查过的进程本地缓存，下次秒回
-- **基线学习** — 越用越懂你的电脑，记录每个进程的历史内存/CPU
-- **交互模式** — 输入 `mindow` 进入 REPL，随时问 AI 关于系统的问题
-- **流式输出** — AI 回答实时逐字显示
-- **彩色终端** — 进度条、着色、分组，一眼看出重点
+## 架构与技术栈
+
+```
+mindow
+├── core/              纯 Rust 库：数据采集、过滤、规则引擎
+│   ├── collector      系统数据采集（sysinfo + battery crate）
+│   ├── filter         Top-N 选择、路径分类（System/User/Unknown）
+│   ├── rule_engine    异常检测（内存泄漏、高 CPU、内存压力、低电量）
+│   └── trend_store    进程历史数据环形缓冲区
+│
+├── mindow-cli/        CLI 二进制 + AI 集成
+│   ├── ai/            AI 客户端（OpenAI / Claude）、联网搜索、知识缓存
+│   ├── interactive    交互式 REPL 模式
+│   └── renderer       终端彩色输出渲染
+│
+└── .github/workflows/ CI：push tag 自动构建 Release
+```
+
+- **语言**: Rust
+- **数据采集**: sysinfo（进程/内存/CPU）、battery（电池状态）
+- **AI 接入**: 支持 OpenAI 兼容 API（DeepSeek、GPT 等）和 Claude API
+- **联网搜索**: DuckDuckGo Lite（免费，无需 API key，为 AI 提供进程上下文）
+- **终端渲染**: colored（ANSI 彩色输出）
+- **构建产物**: 单个 `mindow.exe`，约 8-12 MB，无运行时依赖
 
 ## 安装
 
-### 下载可执行文件
+### 方式一：下载 exe（推荐）
 
-从 [Releases](https://github.com/maverickxone/mindow/releases) 页面下载 `mindow.exe`，放到任意目录即可运行。
+从 [Releases](../../releases) 页面下载最新的 `mindow.exe`，放到任意目录即可运行。
 
-### 从源码安装
+> 可选：加入系统 PATH 环境变量后，在任意位置打开终端都能直接输入 `mindow`。
+
+### 方式二：从源码编译
 
 ```bash
-cargo install --git https://github.com/maverickxone/mindow.git --bin mindow
+# 需要 Rust 工具链（https://rustup.rs）
+git clone https://github.com/maverickxone/mindow.git
+cd mindow
+cargo install --path mindow-cli
 ```
 
-## 快速开始
+## 配置 AI（首次使用必读）
+
+Mindow 的核心功能（`report`、`search`、交互问答）依赖 AI API。你需要有一个 API key。
+
+### 支持的 AI 服务
+
+| Provider | 说明 | 推荐模型 |
+|----------|------|----------|
+| OpenAI 兼容 | OpenAI、DeepSeek、硅基流动等任何兼容接口 | gpt-4o-mini / deepseek-chat |
+| Claude | Anthropic Claude API | claude-sonnet-4-20250514 |
+
+### 配置步骤
 
 ```powershell
-# 进入交互模式（推荐）
-mindow
+# 交互式配置（推荐，一步步引导你填写）
+mindow config init
 
-# 或者单次执行
-mindow status          # 系统快照
-mindow watch           # 持续监控
-mindow search chrome   # AI 分析某个进程
-mindow report          # AI 深度报告（需要配置 API key）
+# 或者手动设置各字段
+mindow config set provider openai
+mindow config set api_key sk-你的密钥
+mindow config set model deepseek-chat
+mindow config set base_url https://api.deepseek.com
+mindow config set language cn
 ```
 
-## 配置 AI（可选）
+### 配置文件位置
 
-不配置 AI 也能使用 `status`、`watch` 功能。配置后解锁 `report`、`search`、自由对话。
+`~/.mindow/config.toml`（Windows 下通常是 `C:\Users\你的用户名\.mindow\config.toml`）
 
+```toml
+provider = "openai"                    # openai | claude
+model = "deepseek-chat"                # 模型名称
+api_key = "sk-..."                     # 你的 API 密钥
+base_url = "https://api.deepseek.com"  # API 地址
+language = "cn"                        # cn | en（AI 回复语言）
+```
+
+### 常见 API 配置示例
+
+**DeepSeek（推荐，便宜好用）**
 ```powershell
 mindow config set provider openai
-mindow config set model deepseek-v4-pro
-mindow config set api_key sk-你的密钥
 mindow config set base_url https://api.deepseek.com
+mindow config set model deepseek-chat
+mindow config set api_key sk-你的deepseek密钥
 ```
 
-配置文件位置：`~/.mindow/config.toml`
+**OpenAI**
+```powershell
+mindow config set provider openai
+mindow config set base_url https://api.openai.com
+mindow config set model gpt-4o-mini
+mindow config set api_key sk-你的openai密钥
+```
 
-支持任何 OpenAI 兼容 API（DeepSeek、SiliconFlow、Ollama 本地等）和 Claude 原生 API。
+**Claude**
+```powershell
+mindow config set provider claude
+mindow config set base_url https://api.anthropic.com
+mindow config set model claude-sonnet-4-20250514
+mindow config set api_key sk-ant-你的claude密钥
+```
 
-## 命令一览
+> 💡 不配置 AI 也能用 `mindow status` 和 `mindow watch`，只是没有 AI 分析功能。
 
-| 命令 | 说明 |
-|------|------|
-| `mindow` | 进入交互模式（REPL） |
-| `mindow status` | 系统快照 |
-| `mindow watch` | 持续监控（Ctrl+C 退出） |
-| `mindow search <名字\|PID>` | AI 分析进程 |
-| `mindow report` | AI 深度分析报告 |
-| `mindow config show` | 显示配置 |
-| `mindow config set <key> <value>` | 设置配置项 |
-| `mindow config init` | 交互式配置 |
-| `mindow baseline show` | 查看学习到的基线 |
-| `mindow baseline reset` | 重置基线数据 |
-| `mindow knowledge show` | 查看知识库缓存 |
-| `mindow knowledge clear` | 清空知识库 |
+## 使用方式
 
-## 参数
+配置完成后，推荐直接运行 `mindow` 进入交互模式，输入 `/help` 查看所有可用命令：
+
+```powershell
+mindow
+```
+
+也可以直接执行单次命令而不进入交互模式：
+
+```powershell
+mindow status          # 一次性系统快照
+mindow watch           # 持续监控
+mindow search kiro     # AI 分析某个进程
+mindow report          # AI 生成完整报告
+```
+
+### 全局参数
+
+所有命令都支持以下参数：
 
 ```
 --top N              显示前 N 组进程（默认 25）
 --sort mem|cpu|name  排序方式（默认 mem）
---interval N         watch 刷新间隔秒数（默认 10）
---all                显示全部进程
---no-color           禁用颜色
+--interval N         watch 模式刷新间隔秒数（默认 10）
+--no-color           禁用彩色输出
+--all                显示全部进程（不限制 top-N）
 ```
 
-## 交互模式
+## 功能说明
 
-输入 `mindow` 进入 REPL，支持：
+### `mindow status` — 系统快照
 
-- 斜杠命令：`/status`、`/search kiro`、`/report`、`/config`、`/baseline`、`/knowledge`
-- 自由文本直接问 AI（自动附带系统快照作为上下文）
-- 上下箭头翻历史，Ctrl+C 两次退出
+一次性采集当前系统状态，展示进程列表、内存/CPU 使用率、电池信息。
 
-![mindow status](screenshots/status.png)
-
-## 架构
-
-```
-core/          系统数据采集、过滤、规则引擎（纯 Rust 库，无 AI 依赖）
-mindow-cli/    CLI 界面 + AI 集成（二进制）
+```powershell
+mindow status              # 默认按内存排序，显示前 25 组
+mindow status --sort cpu   # 按 CPU 排序
+mindow status --top 10     # 只显示前 10 组
+mindow status --all        # 显示全部进程
 ```
 
-## 系统要求
+输出内容：
+- **SYSTEM 区域**: CPU 平均使用率、内存使用率（带进度条）、电池状态
+- **PROCESSES 区域**: 进程名（同名自动合并）、CPU%、内存、状态标记
+  - `[S]` 蓝色 = System 系统进程
+  - `[U]` 白色 = User 用户安装的应用
+  - `[?]` 黄色 = Unknown 无法读取路径
+- **ALERTS 区域**: 如果有内存压力等异常会显示告警（status 单次运行只检测瞬时告警）
 
-- Windows 10/11 x64
-- AI 功能需要网络 + API key（不配也能用基础监控功能）
+![status 命令效果](screenshots/status.png)
+
+### `mindow watch` — 持续监控
+
+像任务管理器一样持续刷新，每隔 N 秒重新采集一次。规则引擎在此模式下累积数据，可以检测内存泄漏和持续高 CPU。
+
+```powershell
+mindow watch               # 默认 10 秒刷新一次
+mindow watch --interval 3  # 3 秒刷新
+mindow watch --sort cpu    # 按 CPU 排序
+```
+
+按 `Ctrl+C` 退出。watch 模式下规则引擎会逐步积累数据：
+- 运行 5 个周期后（默认 50 秒），内存泄漏和高 CPU 检测开始生效
+- 如果检测到异常，ALERTS 区域会实时显示告警
+
+### `mindow search <进程名>` — AI 分析单个进程
+
+查询某个进程是什么、是否安全、是否占用异常。
+
+```powershell
+mindow search kiro          # 按名字搜索（模糊匹配）
+mindow search 4160          # 按 PID 搜索
+mindow search kiro --refresh  # 跳过缓存，强制重新询问 AI
+```
+
+工作流程：
+1. 在当前运行的进程中查找匹配项
+2. 联网搜索（DuckDuckGo）获取该进程的公开信息
+3. 将进程数据 + 搜索结果 + 历史基线一起发给 AI
+4. AI 返回：软件描述、类别、典型内存范围、风险等级（safe/caution）、建议
+5. 结果自动缓存到 knowledge.json，下次查询同一进程秒出结果
+
+### `mindow report` — AI 系统分析报告
+
+让 AI 综合分析整个系统状态，生成一份完整的健康报告。
+
+```powershell
+mindow report              # 中文报告（默认）
+mindow report --lang en    # 英文报告
+```
+
+报告内容（AI 流式输出，逐字显示）：
+1. 系统概要 — 整体健康状况评估
+2. 异常分析 — 解释检测到的问题
+3. 具体建议 — 可操作的优化建议
+
+报告自动保存到 `~/.mindow/reports/` 目录，带时间戳文件名。
+
+### `mindow`（交互模式）— REPL 界面
+
+不带任何子命令直接运行 `mindow`，进入交互式界面。
+
+```powershell
+mindow
+```
+
+交互模式支持两种输入方式：
+
+**斜杠命令**（等同于上面的单次命令）：
+```
+> /status              等同于 mindow status
+> /search kiro         等同于 mindow search kiro
+> /report              等同于 mindow report
+> /config              查看 AI 配置
+> /config set key val  修改配置
+> /baseline            查看进程基线数据
+> /knowledge           查看 AI 知识缓存
+> /clear               清屏
+> /help                显示帮助（选择命令后显示详细用法）
+> /quit                退出（或按两次 Ctrl+C）
+```
+
+**自由提问**（直接打字，AI 自动结合当前系统数据回答）：
+```
+> 为什么我的内存占用这么高？
+> chrome 是不是有问题？
+> 哪些进程可以关掉来省电？
+> 我的系统现在健康吗？
+```
+
+每次提问时，程序会自动采集一次系统快照作为上下文发送给 AI，所以 AI 的回答是基于你当前实时的系统状态。
+
+### `mindow config` — 配置管理
+
+```powershell
+mindow config init              # 交互式引导，一步步填写所有配置
+mindow config show              # 显示当前配置（API key 会脱敏显示）
+mindow config set <key> <value> # 修改单个字段
+```
+
+可设置的字段：`provider`、`model`、`api_key`、`base_url`、`language`
+
+### `mindow baseline` — 基线数据管理
+
+程序每次运行 status/watch 时会自动学习每个进程的"正常"资源占用水平。
+
+```powershell
+mindow baseline show    # 查看所有进程的历史统计（平均内存、最大内存、平均 CPU）
+mindow baseline reset   # 清空所有基线数据，从头学习
+```
+
+基线数据用于 AI 分析时判断某个进程是否"异常偏高"。
+
+### `mindow knowledge` — AI 知识缓存管理
+
+AI 分析过的进程信息会缓存起来，避免重复查询浪费 API 额度。
+
+```powershell
+mindow knowledge show   # 查看所有缓存的进程知识
+mindow knowledge clear  # 清空缓存（下次 search 会重新查询 AI）
+```
+
+### 数据存储
+
+所有数据存储在 `~/.mindow/` 目录下：
+
+```
+~/.mindow/
+├── config.toml        AI 配置
+├── baselines.json     进程历史基线数据
+├── knowledge.json     AI 进程知识缓存
+├── reports/           AI 分析报告存档
+└── history.txt        交互模式命令历史
+```
+
+## 资源占用
+
+| 资源 | 消耗 |
+|------|------|
+| 内存 | ~20 MB（常驻） |
+| CPU | ~0%（10 秒一次采集，每次几十毫秒） |
+| 磁盘 | 每次采集写几 KB |
+| 网络 | 仅在 AI 分析时调用 API |
 
 ## License
 
 MIT
-
----
-
-## English
-
-**Mindow** — AI-powered Windows system resource analyzer. Single exe, zero dependencies, built with Rust.
-
-Download `mindow.exe` from [Releases](https://github.com/maverickxone/mindow/releases). No installation required.
-
-Features: real-time process monitoring, memory leak detection, sustained high CPU alerts, AI-powered process identification (supports OpenAI/Claude/DeepSeek), local knowledge caching, baseline learning.
-
-Requires Windows 10/11 x64. AI features require an API key (any OpenAI-compatible endpoint).
-
-```powershell
-mindow              # Interactive mode (recommended)
-mindow status       # System snapshot
-mindow search chrome  # AI-powered process analysis
-mindow report       # Full AI analysis report
-```

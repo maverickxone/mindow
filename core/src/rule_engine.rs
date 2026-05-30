@@ -23,6 +23,11 @@ pub struct RuleEngine {
 }
 
 impl RuleEngine {
+    /// Returns a reference to the internal TrendStore.
+    pub fn trend_store(&self) -> &TrendStore {
+        &self.trend_store
+    }
+
     /// Creates a new RuleEngine with the given configuration.
     pub fn new(config: Config) -> Self {
         Self {

@@ -1,0 +1,124 @@
+{
+  "tabs": {
+    "processes": "Processes",
+    "performance": "Performance",
+    "ai": "AI",
+    "settings": "Settings"
+  },
+  "search": {
+    "placeholder": "Search processes..."
+  },
+  "processes": {
+    "viewList": "List",
+    "viewTree": "Tree",
+    "columns": {
+      "name": "Name",
+      "pid": "PID",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "disk": "Disk",
+      "status": "Status"
+    },
+    "groups": {
+      "apps": "Apps",
+      "background": "Background",
+      "system": "System"
+    },
+    "contextMenu": {
+      "kill": "End Process",
+      "killMultiple": "End {{count}} Processes",
+      "openLocation": "Open File Location"
+    },
+    "toast": {
+      "killSuccess": "Ended process \"{{name}}\"",
+      "killBatchSuccess": "Successfully ended {{success}} processes",
+      "killBatchPartial": "Ended processes: {{success}} succeeded, {{fail}} failed",
+      "killError": "Failed to end process: {{message}}",
+      "openLocationError": "Failed to open file location: {{message}}"
+    },
+    "detail": {
+      "title": "Process Details",
+      "close": "Close panel",
+      "infoName": "Name",
+      "infoPid": "PID",
+      "infoCpu": "CPU",
+      "infoMemory": "Memory",
+      "infoPath": "Path",
+      "activeAlerts": "⚠ Active Alerts",
+      "loadingHistory": "Loading history...",
+      "loadError": "Load failed: {{error}}",
+      "noData": "No history data yet, waiting for sampling...",
+      "cpuTrend": "CPU Trend",
+      "memoryTrend": "Memory Trend"
+    }
+  },
+  "performance": {
+    "cpu": "CPU",
+    "memory": "Memory",
+    "diskIO": "Disk IO",
+    "systemOverview": "System Overview",
+    "cpuAverage": "Average",
+    "core": "Core {{index}}",
+    "cores": "{{count}} cores",
+    "highest": "Highest",
+    "used": "Used",
+    "read": "Read",
+    "write": "Write",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "diskRead": "Disk Read",
+    "diskWrite": "Disk Write",
+    "battery": "Battery",
+    "charging": "Charging",
+    "dataPoints": "Data Points",
+    "samplingInterval": "Sampling Interval: 2s",
+    "cpuAverageSeries": "CPU Average",
+    "memorySeries": "Memory",
+    "readSeries": "Read",
+    "writeSeries": "Write"
+  },
+  "ai": {
+    "systemContext": "System Context",
+    "cpuAverage": "CPU Average",
+    "cpuCores": "CPU Cores",
+    "memoryUsed": "Memory Used",
+    "memoryTotal": "Memory Total",
+    "battery": "Battery",
+    "greeting": "Hi! I'm the Mindow AI Assistant.",
+    "greetingHint": "Ask me anything about your system — I'll answer based on real-time data.",
+    "inputPlaceholder": "Type your question… (Enter to send, Shift+Enter for new line)",
+    "send": "Send",
+    "streaming": "Generating",
+    "assistant": "AI Assistant",
+    "errorDefault": "AI response failed. Please check your network connection or API configuration.",
+    "errorInvoke": "Failed to call AI. Please try again later.",
+    "analyze": "🤖 AI Analyze",
+    "analyzing": "AI is analyzing...",
+    "analyzeLabel": "AI analyze this process",
+    "waitingResponse": "Waiting for AI response...",
+    "analysisFailed": "⚠ Analysis Failed",
+    "analysisSuggestion": "Suggestion: Please check your network connection or verify your AI API key is properly configured.",
+    "analyzeError": "AI analysis request failed: {{error}}. Please check your network connection or API configuration."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageZh": "简体中文",
+    "languageEn": "English",
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "autoStart": "Auto Start",
+    "autoStartDesc": "Launch Mindow on system startup",
+    "shortcut": "Global Shortcut",
+    "shortcutHint": "Press to show/hide window",
+    "aiConfig": "AI Configuration",
+    "aiEndpoint": "API Endpoint",
+    "aiApiKey": "API Key",
+    "saveAiConfig": "Save",
+    "comingSoon": "Coming Soon"
+  },
+  "common": {
+    "comingSoon": "{{title}} — Coming Soon"
+  }
+}

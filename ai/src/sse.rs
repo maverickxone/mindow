@@ -1,4 +1,4 @@
-use super::client::Provider;
+use crate::client::Provider;
 
 /// SSE 事件解析结果
 #[derive(Debug, Clone, PartialEq)]
