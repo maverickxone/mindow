@@ -55,9 +55,11 @@ impl Collect for SysinfoCollector {
             let pid = process.pid().as_u32();
             let cpu_percent = process.cpu_usage();
             let memory_bytes = process.memory();
+            // Per-refresh-interval deltas (not cumulative lifetime totals), so
+            // the GUI can render them as a meaningful per-second I/O rate.
             let disk_usage = process.disk_usage();
-            let disk_read_bytes = disk_usage.total_read_bytes;
-            let disk_write_bytes = disk_usage.total_written_bytes;
+            let disk_read_bytes = disk_usage.read_bytes;
+            let disk_write_bytes = disk_usage.written_bytes;
             let exe_path = process.exe().map(|p| p.to_string_lossy().to_string());
             let start_time = process.start_time();
             let parent_pid = process.parent().map(|p| p.as_u32());

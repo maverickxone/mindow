@@ -9,9 +9,8 @@
     "placeholder": "Search by name or PID..."
   },
   "processes": {
-    "viewList": "List",
-    "viewTree": "Tree",
     "endTask": "End task",
+    "baselineTooltip": "Current memory usage is {{deviation}}× the P95 baseline",
     "columns": {
       "name": "Name",
       "pid": "PID",
@@ -28,10 +27,8 @@
     },
     "contextMenu": {
       "kill": "End task",
-      "killTree": "End process tree",
       "killMultiple": "End {{count}} tasks",
       "openLocation": "Open file location",
-      "aiAnalyze": "AI analyze",
       "copyName": "Copy name",
       "copyPid": "Copy PID"
     },

@@ -66,33 +66,3 @@ export function useProcessIcon(exePath: string | null): string | null {
 
   return icon || null;
 }
-
-/**
- * Non-hook version: get icon from cache only (synchronous).
- * Returns null if not yet cached.
- */
-export function getIconFromCache(exePath: string | null): string | null {
-  if (!exePath) return null;
-  return iconCache.get(exePath) || null;
-}
-
-/**
- * Prefetch icons for a batch of exe paths.
- * Call this after receiving a snapshot to warm the cache.
- */
-export function prefetchIcons(exePaths: (string | null)[]): void {
-  for (const path of exePaths) {
-    if (!path || iconCache.has(path) || pendingRequests.has(path)) continue;
-    pendingRequests.add(path);
-    invoke<string | null>("get_process_icon", { exePath: path })
-      .then((result) => {
-        iconCache.set(path, result || "");
-      })
-      .catch(() => {
-        iconCache.set(path, "");
-      })
-      .finally(() => {
-        pendingRequests.delete(path);
-      });
-  }
-}

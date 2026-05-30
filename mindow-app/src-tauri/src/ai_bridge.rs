@@ -12,14 +12,17 @@ use mindow_ai::config::{self, AiConfig};
 use crate::state::AppState;
 
 /// Payload emitted to the frontend on each streaming text chunk.
+/// `request_id` lets the frontend ignore events from a stale/other stream.
 #[derive(Debug, Clone, Serialize)]
 pub struct AiDeltaPayload {
+    pub request_id: String,
     pub delta: String,
 }
 
 /// Payload emitted when streaming completes or encounters an error.
 #[derive(Debug, Clone, Serialize)]
 pub struct AiDonePayload {
+    pub request_id: String,
     pub success: bool,
     pub error: Option<String>,
 }
@@ -108,11 +111,13 @@ fn create_client_config(ai_config: &AiConfig) -> (AiClientConfig, Provider) {
 /// StreamCallback implementation that emits Tauri events to the frontend.
 struct TauriStreamCallback {
     app_handle: tauri::AppHandle,
+    request_id: String,
 }
 
 impl StreamCallback for TauriStreamCallback {
     fn on_delta(&mut self, text: &str) {
         let payload = AiDeltaPayload {
+            request_id: self.request_id.clone(),
             delta: text.to_string(),
         };
         let _ = self.app_handle.emit("ai-delta", &payload);
@@ -120,6 +125,7 @@ impl StreamCallback for TauriStreamCallback {
 
     fn on_complete(&mut self) {
         let payload = AiDonePayload {
+            request_id: self.request_id.clone(),
             success: true,
             error: None,
         };
@@ -128,6 +134,7 @@ impl StreamCallback for TauriStreamCallback {
 
     fn on_error(&mut self, error: &AiError) {
         let payload = AiDonePayload {
+            request_id: self.request_id.clone(),
             success: false,
             error: Some(error.to_string()),
         };
@@ -165,6 +172,7 @@ async fn stream_with_provider(
 /// then streams the AI response via "ai-delta" events.
 pub async fn stream_analyze_process(
     app_handle: tauri::AppHandle,
+    request_id: &str,
     process_name: &str,
     pid: Option<u32>,
     state: &AppState,
@@ -227,12 +235,14 @@ pub async fn stream_analyze_process(
     // Stream the response
     let mut callback = TauriStreamCallback {
         app_handle: app_handle.clone(),
+        request_id: request_id.to_string(),
     };
 
     let result = stream_with_provider(client_config, &provider, system_prompt, &user_prompt, &mut callback).await;
 
     if let Err(e) = result {
         let payload = AiDonePayload {
+            request_id: request_id.to_string(),
             success: false,
             error: Some(e.to_string()),
         };
@@ -249,6 +259,7 @@ pub async fn stream_analyze_process(
 /// system-related questions with real-time data awareness.
 pub async fn stream_chat(
     app_handle: tauri::AppHandle,
+    request_id: &str,
     user_message: &str,
     state: &AppState,
 ) -> Result<(), String> {
@@ -275,12 +286,14 @@ pub async fn stream_chat(
     // Stream the response
     let mut callback = TauriStreamCallback {
         app_handle: app_handle.clone(),
+        request_id: request_id.to_string(),
     };
 
     let result = stream_with_provider(client_config, &provider, &system_prompt, &user_prompt, &mut callback).await;
 
     if let Err(e) = result {
         let payload = AiDonePayload {
+            request_id: request_id.to_string(),
             success: false,
             error: Some(e.to_string()),
         };

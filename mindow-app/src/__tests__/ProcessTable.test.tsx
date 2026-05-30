@@ -12,6 +12,7 @@ vi.mock("react-i18next", () => ({
         "processes.columns.pid": "PID",
         "processes.columns.cpu": "CPU",
         "processes.columns.memory": "内存",
+        "processes.columns.disk": "磁盘",
         "performance.read": "读取",
         "performance.write": "写入",
         "processes.groups.apps": "应用",
@@ -96,10 +97,10 @@ describe("ProcessTable", () => {
 
     render(<ProcessTable processes={processes} {...defaultProps} />);
 
-    // Group headers should be rendered
-    expect(screen.getByText("应用")).toBeInTheDocument();
-    expect(screen.getByText("系统进程")).toBeInTheDocument();
-    expect(screen.getByText("后台进程")).toBeInTheDocument();
+    // Group headers are rendered with their group count, e.g. "应用 (1)"
+    expect(screen.getByText("应用 (1)")).toBeInTheDocument();
+    expect(screen.getByText("系统进程 (1)")).toBeInTheDocument();
+    expect(screen.getByText("后台进程 (1)")).toBeInTheDocument();
   });
 
   it("空进程列表时不崩溃", () => {
@@ -114,16 +115,18 @@ describe("ProcessTable", () => {
   it("渲染表头列名", () => {
     render(<ProcessTable processes={[]} {...defaultProps} />);
 
+    // Columns: Name / CPU / Memory / Disk (no standalone PID column —
+    // processes are grouped by name, PID shows on expanded child rows).
     expect(screen.getByText("名称")).toBeInTheDocument();
-    expect(screen.getByText("PID")).toBeInTheDocument();
     expect(screen.getByText("CPU")).toBeInTheDocument();
     expect(screen.getByText("内存")).toBeInTheDocument();
+    expect(screen.getByText("磁盘")).toBeInTheDocument();
   });
 
-  it("显示进程 PID", () => {
+  it("渲染单实例进程组（显示进程名）", () => {
     const processes = [createProcess({ name: "app.exe", pid: 9876 })];
     render(<ProcessTable processes={processes} {...defaultProps} />);
-    expect(screen.getByText("9876")).toBeInTheDocument();
+    expect(screen.getByText("app.exe")).toBeInTheDocument();
   });
 
   it("仅有 User 进程时只显示应用分组", () => {
@@ -134,8 +137,8 @@ describe("ProcessTable", () => {
 
     render(<ProcessTable processes={processes} {...defaultProps} />);
 
-    expect(screen.getByText("应用")).toBeInTheDocument();
-    expect(screen.queryByText("系统进程")).not.toBeInTheDocument();
-    expect(screen.queryByText("后台进程")).not.toBeInTheDocument();
+    expect(screen.getByText("应用 (2)")).toBeInTheDocument();
+    expect(screen.queryByText(/系统进程/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/后台进程/)).not.toBeInTheDocument();
   });
 });

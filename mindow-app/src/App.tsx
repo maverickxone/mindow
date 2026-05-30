@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useProcessStore } from "./stores/processStore";
 import { usePerformanceStore } from "./stores/performanceStore";
+import { useSettingsStore } from "./stores/settingsStore";
+import { SAMPLING_INTERVAL_SECS } from "./lib/constants";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar, type PageId } from "./components/Sidebar";
 import { ProcessesPage } from "./pages/ProcessesPage";
@@ -16,6 +18,13 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const updateSnapshot = useProcessStore((s) => s.updateSnapshot);
   const appendDataPoint = usePerformanceStore((s) => s.appendDataPoint);
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+
+  // Load persisted settings (theme, language, AI config) once on startup so a
+  // returning user's choices apply immediately — not only after opening Settings.
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   // Listen to backend snapshot-updated events
   const handleSnapshotUpdate = useCallback(
@@ -25,8 +34,10 @@ function App() {
       if (data.system) {
         const totalMem = data.system.total_memory || 1;
         const memPercent = (data.system.used_memory / totalMem) * 100;
-        const diskRead = data.processes.reduce((sum, p) => sum + p.disk_read_bytes, 0);
-        const diskWrite = data.processes.reduce((sum, p) => sum + p.disk_write_bytes, 0);
+        // Disk counters are per-sampling-interval deltas; divide by the
+        // interval to store a per-second rate.
+        const diskRead = data.processes.reduce((sum, p) => sum + p.disk_read_bytes, 0) / SAMPLING_INTERVAL_SECS;
+        const diskWrite = data.processes.reduce((sum, p) => sum + p.disk_write_bytes, 0) / SAMPLING_INTERVAL_SECS;
         appendDataPoint(data.system.cpu_avg, memPercent, diskRead, diskWrite);
       }
     },

@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useProcessStore, filterProcesses, sortProcesses } from "../stores/processStore";
-import { ProcessTable } from "../components/ProcessTable";
+import { ProcessTable, formatDiskRate } from "../components/ProcessTable";
 import { ContextMenu, type ContextMenuState } from "../components/ContextMenu";
 import { SidePanel } from "../components/SidePanel";
 import { showToast } from "../components/Toast";
@@ -40,6 +40,13 @@ export function ProcessesPage({ searchQuery }: ProcessesPageProps) {
     const filtered = filterProcesses(processes, searchQuery);
     return sortProcesses(filtered, sortColumn, sortDirection);
   }, [processes, searchQuery, sortColumn, sortDirection]);
+
+  // Aggregate disk I/O across all processes for the summary row (per-interval
+  // bytes; formatDiskRate converts to a per-second rate).
+  const totalDiskBytes = useMemo(
+    () => processes.reduce((sum, p) => sum + p.disk_read_bytes + p.disk_write_bytes, 0),
+    [processes]
+  );
 
   // Context menu
   const handleContextMenu = useCallback(
@@ -117,18 +124,18 @@ export function ProcessesPage({ searchQuery }: ProcessesPageProps) {
           </div>
         </div>
 
-        {/* Summary row */}
+        {/* Summary row — column widths mirror the ProcessTable header */}
         {system && (
-          <div className="flex items-center px-4 py-1 bg-tertiary/50 border-b border-border text-[11px] text-text-secondary shrink-0">
-            <div className="flex-[2] px-1"></div>
+          <div className="flex items-center px-3 py-1 bg-tertiary/50 border-b border-border text-[11px] text-text-secondary shrink-0">
+            <div className="flex-[2.5] px-1"></div>
             <div className="w-16 px-1 text-right font-medium">
               {system.cpu_avg.toFixed(0)}%
             </div>
             <div className="w-24 px-1 text-right font-medium">
               {Math.round((system.used_memory / system.total_memory) * 100)}%
             </div>
-            <div className="w-20 px-1 text-right font-medium">
-              0 MB/s
+            <div className="w-24 px-1 text-right font-medium">
+              {formatDiskRate(totalDiskBytes)}
             </div>
           </div>
         )}

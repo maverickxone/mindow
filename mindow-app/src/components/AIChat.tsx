@@ -5,11 +5,13 @@ import { useTauriEvent } from "../hooks/useTauriEvent";
 
 /** ai-delta 事件 payload */
 interface AiDeltaPayload {
+  request_id: string;
   delta: string;
 }
 
 /** ai-done 事件 payload */
 interface AiDonePayload {
+  request_id: string;
   success: boolean;
   error: string | null;
 }
@@ -38,6 +40,8 @@ export function AIChat({ processName, pid }: AIChatProps) {
   const streamingRef = useRef(false);
   const responseRef = useRef("");
   const containerRef = useRef<HTMLDivElement>(null);
+  // 当前请求 ID，用于过滤掉非本次请求（陈旧/其他流）的事件
+  const requestIdRef = useRef("");
 
   // 自动滚动到底部
   useEffect(() => {
@@ -48,6 +52,7 @@ export function AIChat({ processName, pid }: AIChatProps) {
 
   // 监听 ai-delta 事件 — 逐字累加
   const handleDelta = useCallback((payload: AiDeltaPayload) => {
+    if (payload.request_id !== requestIdRef.current) return;
     if (!streamingRef.current) return;
     responseRef.current += payload.delta;
     setResponse(responseRef.current);
@@ -55,6 +60,7 @@ export function AIChat({ processName, pid }: AIChatProps) {
 
   // 监听 ai-done 事件 — 完成或错误
   const handleDone = useCallback((payload: AiDonePayload) => {
+    if (payload.request_id !== requestIdRef.current) return;
     if (!streamingRef.current) return;
     streamingRef.current = false;
     setIsStreaming(false);
@@ -77,9 +83,12 @@ export function AIChat({ processName, pid }: AIChatProps) {
     responseRef.current = "";
     streamingRef.current = true;
     setIsStreaming(true);
+    const requestId = crypto.randomUUID();
+    requestIdRef.current = requestId;
 
     try {
       await invoke("ai_analyze_process", {
+        requestId,
         processName,
         pid,
       });

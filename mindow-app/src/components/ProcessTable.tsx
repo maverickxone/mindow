@@ -4,6 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProcessStore } from "../stores/processStore";
 import { BaselineTag } from "./BaselineTag";
 import { ProcessIcon } from "./ProcessIcon";
+import { SAMPLING_INTERVAL_SECS } from "../lib/constants";
 import type { ProcessInfo, AlertInfo } from "../types";
 import type { SortColumn, SortDirection } from "../stores/processStore";
 
@@ -20,10 +21,16 @@ function formatCpu(percent: number): string {
   return `${percent.toFixed(1)}%`;
 }
 
-function formatDiskRate(bytes: number): string {
-  if (bytes === 0) return "0 MB/s";
-  const mb = bytes / (1024 * 1024);
-  if (mb < 0.1) return `${(bytes / 1024).toFixed(1)} KB/s`;
+/**
+ * Format a per-interval byte count as a per-second I/O rate.
+ * The backend reports bytes accumulated over one sampling interval, so we
+ * divide by the interval to get bytes/second before formatting.
+ */
+export function formatDiskRate(bytesPerInterval: number): string {
+  const bytesPerSec = bytesPerInterval / SAMPLING_INTERVAL_SECS;
+  if (bytesPerSec < 1) return "0 MB/s";
+  const mb = bytesPerSec / (1024 * 1024);
+  if (mb < 0.1) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
   return `${mb.toFixed(1)} MB/s`;
 }
 
@@ -55,6 +62,39 @@ type RowItem =
   | { type: "group-header"; label: string; count: number }
   | { type: "group"; group: ProcessGroup }
   | { type: "child"; process: ProcessInfo; parentName: string };
+
+/**
+ * Sort merged groups by the active column using each group's aggregate
+ * (displayed) value, so header-click sorting matches what the user sees.
+ */
+function sortGroups(
+  groups: ProcessGroup[],
+  column: SortColumn | null,
+  direction: SortDirection
+): ProcessGroup[] {
+  if (!column) return groups;
+  const m = direction === "asc" ? 1 : -1;
+  const sorted = [...groups];
+  sorted.sort((a, b) => {
+    switch (column) {
+      case "name":
+        return m * a.name.localeCompare(b.name);
+      case "pid":
+        return m * (a.primaryPid - b.primaryPid);
+      case "cpu":
+        return m * (a.totalCpu - b.totalCpu);
+      case "memory":
+        return m * (a.totalMemory - b.totalMemory);
+      case "diskRead":
+        return m * (a.totalDiskRead + a.totalDiskWrite - (b.totalDiskRead + b.totalDiskWrite));
+      case "diskWrite":
+        return m * (a.totalDiskWrite - b.totalDiskWrite);
+      default:
+        return 0;
+    }
+  });
+  return sorted;
+}
 
 function mergeProcesses(processes: ProcessInfo[], alerts: AlertInfo[]): ProcessGroup[] {
   const alertPids = new Set(alerts.map(a => a.pid).filter((p): p is number => p !== null));
@@ -134,9 +174,9 @@ export function ProcessTable({
 
   const rows = useMemo<RowItem[]>(() => {
     const groups = mergeProcesses(processes, alerts);
-    const userGroups = groups.filter(g => g.pathStatus === "User");
-    const unknownGroups = groups.filter(g => g.pathStatus === "Unknown");
-    const systemGroups = groups.filter(g => g.pathStatus === "System");
+    const userGroups = sortGroups(groups.filter(g => g.pathStatus === "User"), sortColumn, sortDirection);
+    const unknownGroups = sortGroups(groups.filter(g => g.pathStatus === "Unknown"), sortColumn, sortDirection);
+    const systemGroups = sortGroups(groups.filter(g => g.pathStatus === "System"), sortColumn, sortDirection);
 
     const result: RowItem[] = [];
     const addSection = (label: string, sectionGroups: ProcessGroup[]) => {
@@ -155,7 +195,7 @@ export function ProcessTable({
     addSection(t("processes.groups.background"), unknownGroups);
     addSection(t("processes.groups.system"), systemGroups);
     return result;
-  }, [processes, alerts, expandedGroups, t]);
+  }, [processes, alerts, expandedGroups, sortColumn, sortDirection, t]);
 
   const visiblePids = useMemo(() => {
     return rows

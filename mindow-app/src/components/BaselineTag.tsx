@@ -10,12 +10,16 @@
  * Validates: Requirements 6.1, 6.2, 6.3, 6.4
  */
 
+import { useTranslation } from "react-i18next";
+
 interface BaselineTagProps {
   /** 基线偏离倍数，null 表示采样不足 */
   deviation: number | null;
 }
 
 export function BaselineTag({ deviation }: BaselineTagProps) {
+  const { t } = useTranslation();
+
   // 采样不足 10 次，不展示（deviation 为 null）
   if (deviation === null) {
     return null;
@@ -42,7 +46,7 @@ export function BaselineTag({ deviation }: BaselineTagProps) {
           : "rgba(251, 191, 36, 0.12)",
         border: `1px solid ${colorVar}`,
       }}
-      title={`当前内存占用超过基线 P95 的 ${deviation.toFixed(1)} 倍`}
+      title={t("processes.baselineTooltip", { deviation: deviation.toFixed(1) })}
     >
       {label}
     </span>

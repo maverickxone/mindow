@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { showToast } from "./Toast";
@@ -21,6 +21,20 @@ interface ContextMenuProps {
 export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: state.x, top: state.y });
+
+  // Clamp the menu inside the viewport so it never overflows off-screen when
+  // opened near the right or bottom edge. Runs before paint to avoid flicker.
+  useLayoutEffect(() => {
+    if (!state.visible) return;
+    const el = menuRef.current;
+    if (!el) return;
+    const pad = 8;
+    const { width, height } = el.getBoundingClientRect();
+    const left = Math.max(pad, Math.min(state.x, window.innerWidth - width - pad));
+    const top = Math.max(pad, Math.min(state.y, window.innerHeight - height - pad));
+    setPos({ left, top });
+  }, [state.visible, state.x, state.y]);
 
   useEffect(() => {
     if (!state.visible) return;
@@ -103,8 +117,9 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
   return (
     <div
       ref={menuRef}
+      role="menu"
       className="fixed z-50 min-w-[180px] bg-secondary border border-border rounded-md shadow-xl py-1 text-xs"
-      style={{ left: state.x, top: state.y }}
+      style={{ left: pos.left, top: pos.top }}
     >
       <MenuItem
         label={isMultiSelect ? t("processes.contextMenu.killMultiple", { count: processCount }) : t("processes.contextMenu.kill")}
@@ -125,6 +140,7 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
 function MenuItem({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
+      role="menuitem"
       className={`w-full text-left px-4 py-1.5 transition-colors ${
         disabled
           ? "text-text-muted cursor-not-allowed"

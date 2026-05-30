@@ -12,11 +12,13 @@ interface ChatMessage {
 
 /** AI 流式增量事件 payload */
 interface AiDeltaPayload {
+  request_id: string;
   delta: string;
 }
 
 /** AI 完成事件 payload */
 interface AiDonePayload {
+  request_id: string;
   success: boolean;
   error: string | null;
 }
@@ -31,6 +33,8 @@ export function AIPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef("");
+  // 当前请求 ID，用于过滤掉非本次请求（陈旧/其他流）的事件
+  const requestIdRef = useRef("");
 
   const system = useProcessStore((s) => s.system);
 
@@ -45,6 +49,7 @@ export function AIPage() {
 
   // 监听 AI 流式增量
   useTauriEvent<AiDeltaPayload>("ai-delta", (payload) => {
+    if (payload.request_id !== requestIdRef.current) return;
     streamingContentRef.current += payload.delta;
     setMessages((prev) => {
       const updated = [...prev];
@@ -61,6 +66,7 @@ export function AIPage() {
 
   // 监听 AI 完成事件
   useTauriEvent<AiDonePayload>("ai-done", (payload) => {
+    if (payload.request_id !== requestIdRef.current) return;
     setIsStreaming(false);
     if (!payload.success) {
       setError(payload.error || t("ai.errorDefault"));
@@ -76,6 +82,8 @@ export function AIPage() {
     setInput("");
     setIsStreaming(true);
     streamingContentRef.current = "";
+    const requestId = crypto.randomUUID();
+    requestIdRef.current = requestId;
 
     // 添加用户消息和空的助手消息占位
     setMessages((prev) => [
@@ -85,7 +93,7 @@ export function AIPage() {
     ]);
 
     try {
-      await invoke("ai_chat", { userMessage: trimmed });
+      await invoke("ai_chat", { requestId, userMessage: trimmed });
     } catch (e) {
       setIsStreaming(false);
       setError(typeof e === "string" ? e : t("ai.errorInvoke"));

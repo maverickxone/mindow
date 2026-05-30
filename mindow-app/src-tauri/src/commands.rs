@@ -172,13 +172,14 @@ pub fn build_process_tree(processes: &[crate::state::ProcessInfo]) -> Vec<Proces
 /// The frontend should listen for "ai-delta" and "ai-done" events.
 #[tauri::command]
 pub async fn ai_analyze_process(
+    request_id: String,
     process_name: String,
     pid: Option<u32>,
     app_handle: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     let state_ref = state.inner().as_ref();
-    ai_bridge::stream_analyze_process(app_handle, &process_name, pid, state_ref).await
+    ai_bridge::stream_analyze_process(app_handle, &request_id, &process_name, pid, state_ref).await
 }
 
 /// Toggle autostart: enable or disable the application's registry Run key entry.
@@ -197,12 +198,13 @@ pub fn get_autostart_status() -> bool {
 /// System context (CPU, memory, top processes) is automatically attached.
 #[tauri::command]
 pub async fn ai_chat(
+    request_id: String,
     user_message: String,
     app_handle: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     let state_ref = state.inner().as_ref();
-    ai_bridge::stream_chat(app_handle, &user_message, state_ref).await
+    ai_bridge::stream_chat(app_handle, &request_id, &user_message, state_ref).await
 }
 
 /// Application settings structure serialized to/from JSON config file.

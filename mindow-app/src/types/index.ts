@@ -23,9 +23,9 @@ export interface SystemInfo {
   battery_charging: "Charging" | "Discharging" | "Full" | null;
 }
 
-/** 告警信息 */
+/** 告警信息 — 字段名与 Rust 后端 AlertInfo 序列化结构保持一致 */
 export interface AlertInfo {
-  type: "MemoryLeak" | "HighCpu" | "MemoryPressure" | "BatteryWarning";
+  alert_type: "MemoryLeak" | "HighCpu" | "MemoryPressure" | "BatteryWarning";
   severity: "Critical" | "Warning";
   message: string;
   process_name: string | null;
@@ -52,14 +52,4 @@ export interface SnapshotData {
 export interface ProcessTrend {
   memory_trend: number[];
   cpu_trend: number[];
-}
-
-/** 进程树节点 — 包含进程信息、子节点和汇总资源 */
-export interface ProcessTreeNode {
-  process: ProcessInfo;
-  children: ProcessTreeNode[];
-  /** 汇总 CPU（自身 + 所有子进程） */
-  aggregated_cpu: number;
-  /** 汇总内存（自身 + 所有子进程） */
-  aggregated_memory: number;
 }

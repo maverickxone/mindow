@@ -240,7 +240,7 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
                 data={memoryChartData}
                 series={[
                   {
-                    label: "内存",
+                    label: t("processes.columns.memory"),
                     stroke: "var(--accent-safe)",
                     width: 1.5,
                     fill: "rgba(74, 222, 128, 0.1)",

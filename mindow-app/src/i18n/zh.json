@@ -9,9 +9,8 @@
     "placeholder": "搜索进程名称或 PID..."
   },
   "processes": {
-    "viewList": "列表",
-    "viewTree": "树形",
     "endTask": "结束任务",
+    "baselineTooltip": "当前内存占用超过基线 P95 的 {{deviation}} 倍",
     "columns": {
       "name": "名称",
       "pid": "PID",
@@ -28,10 +27,8 @@
     },
     "contextMenu": {
       "kill": "结束进程",
-      "killTree": "结束进程树",
       "killMultiple": "结束 {{count}} 个进程",
       "openLocation": "打开文件所在位置",
-      "aiAnalyze": "AI 分析",
       "copyName": "复制进程名",
       "copyPid": "复制 PID"
     },

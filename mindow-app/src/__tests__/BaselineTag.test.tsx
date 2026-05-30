@@ -1,6 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { BaselineTag } from "../components/BaselineTag";
+
+// BaselineTag uses useTranslation only for its title tooltip; mock it so the
+// component renders without an i18n provider.
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
 
 /**
  * BaselineTag 颜色编码逻辑测试
@@ -24,28 +30,28 @@ describe("BaselineTag", () => {
 
   it("deviation >= 1.5 且 < 3.0 时渲染黄色标记", () => {
     render(<BaselineTag deviation={2.0} />);
-    const tag = screen.getByText("⬆ 高于平时 2.0 倍");
+    const tag = screen.getByText("↑ 2.0x");
     expect(tag).toBeInTheDocument();
     expect(tag).toHaveStyle({ color: "var(--accent-warning)" });
   });
 
   it("deviation = 1.5 时渲染黄色标记（边界值）", () => {
     render(<BaselineTag deviation={1.5} />);
-    const tag = screen.getByText("⬆ 高于平时 1.5 倍");
+    const tag = screen.getByText("↑ 1.5x");
     expect(tag).toBeInTheDocument();
     expect(tag).toHaveStyle({ color: "var(--accent-warning)" });
   });
 
   it("deviation >= 3.0 时渲染红色标记", () => {
     render(<BaselineTag deviation={3.5} />);
-    const tag = screen.getByText("⬆ 高于平时 3.5 倍");
+    const tag = screen.getByText("↑ 3.5x");
     expect(tag).toBeInTheDocument();
     expect(tag).toHaveStyle({ color: "var(--accent-danger)" });
   });
 
   it("deviation = 3.0 时渲染红色标记（边界值）", () => {
     render(<BaselineTag deviation={3.0} />);
-    const tag = screen.getByText("⬆ 高于平时 3.0 倍");
+    const tag = screen.getByText("↑ 3.0x");
     expect(tag).toBeInTheDocument();
     expect(tag).toHaveStyle({ color: "var(--accent-danger)" });
   });
