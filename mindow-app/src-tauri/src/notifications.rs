@@ -1,5 +1,5 @@
 // Notification management module: sends Windows system notifications for alerts
-// with 5-minute cooldown deduplication based on alert type + process name.
+// with cooldown deduplication, startup silence, and per-cycle limiting.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,7 +10,31 @@ use tauri_plugin_notification::NotificationExt;
 use crate::state::{AlertInfo, AlertSeverity, AlertType, AppState};
 
 /// Cooldown duration: same alert type + process won't re-notify within this window.
-pub(crate) const NOTIFICATION_COOLDOWN_SECS: u64 = 300; // 5 minutes
+/// Critical alerts: 5 minutes. Warning alerts: 15 minutes.
+pub(crate) const CRITICAL_COOLDOWN_SECS: u64 = 300; // 5 minutes
+pub(crate) const WARNING_COOLDOWN_SECS: u64 = 900; // 15 minutes
+
+/// Startup silence period: no notifications in the first 30 seconds.
+pub(crate) const STARTUP_SILENCE_SECS: u64 = 30;
+
+/// Maximum notifications per sampling cycle (2 seconds).
+pub(crate) const MAX_NOTIFICATIONS_PER_CYCLE: usize = 2;
+
+/// Application start time — set once on AppState creation.
+static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+
+/// Initialize the start time. Call once at app startup.
+pub fn init_start_time() {
+    START_TIME.get_or_init(Instant::now);
+}
+
+/// Check if we're still in the startup silence period.
+fn in_startup_silence() -> bool {
+    match START_TIME.get() {
+        Some(start) => start.elapsed() < Duration::from_secs(STARTUP_SILENCE_SECS),
+        None => false,
+    }
+}
 
 /// Generate a deduplication key from alert type and process name.
 /// Format: "AlertType:process_name" (e.g., "MemoryLeak:chrome")
@@ -28,10 +52,10 @@ pub(crate) fn cooldown_key(alert: &AlertInfo) -> String {
 /// Build a notification title based on alert type and severity.
 fn notification_title(alert: &AlertInfo) -> String {
     match &alert.alert_type {
-        AlertType::MemoryLeak => "⚠️ 内存泄漏警告".to_string(),
-        AlertType::HighCpu => "🔴 CPU 持续高占用".to_string(),
-        AlertType::MemoryPressure => "🔴 系统内存压力".to_string(),
-        AlertType::BatteryWarning => "⚠️ 电池电量警告".to_string(),
+        AlertType::MemoryLeak => "内存泄漏警告".to_string(),
+        AlertType::HighCpu => "CPU 持续高占用".to_string(),
+        AlertType::MemoryPressure => "系统内存压力".to_string(),
+        AlertType::BatteryWarning => "电池电量警告".to_string(),
     }
 }
 
@@ -44,7 +68,12 @@ fn send_alert_notification(
 ) -> bool {
     let key = cooldown_key(alert);
     let now = Instant::now();
-    let cooldown_duration = Duration::from_secs(NOTIFICATION_COOLDOWN_SECS);
+
+    // Use different cooldown duration based on severity
+    let cooldown_duration = match alert.severity {
+        AlertSeverity::Critical => Duration::from_secs(CRITICAL_COOLDOWN_SECS),
+        AlertSeverity::Warning => Duration::from_secs(WARNING_COOLDOWN_SECS),
+    };
 
     // Check if this alert is still in cooldown
     if let Some(last_sent) = cooldowns.get(&key) {
@@ -78,40 +107,44 @@ fn send_alert_notification(
 /// Check all current alerts and send notifications for those not in cooldown.
 /// Called from the sampling loop after rule evaluation produces new alerts.
 ///
-/// Also cleans up expired cooldown entries to prevent unbounded HashMap growth.
+/// Respects:
+/// - Startup silence period (no notifications in first 30 seconds)
+/// - Per-cycle limit (max 2 notifications per call)
+/// - Cooldown dedup (same alert type + process within cooldown window)
+/// - Expired entry cleanup to prevent unbounded HashMap growth.
 pub fn check_and_send_alerts(alerts: &[AlertInfo], state: &Arc<AppState>, app_handle: &tauri::AppHandle) {
     if alerts.is_empty() {
         return;
     }
 
+    // Don't send notifications during startup silence
+    if in_startup_silence() {
+        return;
+    }
+
+    // Check if notifications are enabled (controlled by settings)
+    if !state.notifications_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+
     let mut cooldowns = state.notification_cooldowns.lock().unwrap();
     let now = Instant::now();
-    let cooldown_duration = Duration::from_secs(NOTIFICATION_COOLDOWN_SECS);
+    // Use the longer cooldown for cleanup purposes
+    let max_cooldown = Duration::from_secs(WARNING_COOLDOWN_SECS);
 
-    // Clean up expired cooldown entries (older than 5 minutes)
-    cooldowns.retain(|_, last_sent| now.duration_since(*last_sent) < cooldown_duration);
+    // Clean up expired cooldown entries
+    cooldowns.retain(|_, last_sent| now.duration_since(*last_sent) < max_cooldown);
 
-    // Send notifications for each alert (respecting cooldown)
+    // Send notifications for each alert (respecting cooldown and per-cycle limit)
+    let mut sent_count = 0;
     for alert in alerts {
-        send_alert_notification(alert, &mut cooldowns, app_handle);
-    }
-}
-
-/// Check if a notification should be allowed (not in cooldown).
-/// Returns true if the notification is NOT in cooldown and should proceed.
-/// This is a pure logic function extracted for testability.
-pub(crate) fn should_allow_notification(
-    key: &str,
-    cooldowns: &HashMap<String, Instant>,
-    now: Instant,
-    cooldown_duration: Duration,
-) -> bool {
-    if let Some(last_sent) = cooldowns.get(key) {
-        if now.duration_since(*last_sent) < cooldown_duration {
-            return false; // Still in cooldown, skip
+        if sent_count >= MAX_NOTIFICATIONS_PER_CYCLE {
+            break;
+        }
+        if send_alert_notification(alert, &mut cooldowns, app_handle) {
+            sent_count += 1;
         }
     }
-    true // Not in cooldown, allow
 }
 
 // TODO: Notification click handling
@@ -156,28 +189,38 @@ mod tests {
         })
     }
 
+    /// Helper: check if notification would be allowed based on cooldown map
+    fn should_allow(
+        key: &str,
+        cooldowns: &HashMap<String, Instant>,
+        now: Instant,
+        cooldown_duration: Duration,
+    ) -> bool {
+        if let Some(last_sent) = cooldowns.get(key) {
+            if now.duration_since(*last_sent) < cooldown_duration {
+                return false;
+            }
+        }
+        true
+    }
+
     // **Validates: Requirements 7.5**
     //
     // Property 2: 告警不重复
-    // Same alert type within 5-minute cooldown only triggers one notification.
+    // Same alert type within cooldown only triggers one notification.
     proptest! {
         #[test]
         fn prop_same_alert_blocked_within_cooldown(alert in arb_alert_info(), elapsed_secs in 0u64..299) {
-            // Given: a cooldown map with an entry for this alert recorded at `base_time`
             let mut cooldowns: HashMap<String, Instant> = HashMap::new();
             let key = cooldown_key(&alert);
-            let cooldown_duration = Duration::from_secs(NOTIFICATION_COOLDOWN_SECS);
+            let cooldown_duration = Duration::from_secs(CRITICAL_COOLDOWN_SECS);
 
-            // Record initial send at `base_time`
             let base_time = Instant::now();
             cooldowns.insert(key.clone(), base_time);
 
-            // Simulate time passing (less than 5 minutes)
-            // We add the elapsed duration to base_time to get "now"
             let simulated_now = base_time + Duration::from_secs(elapsed_secs);
 
-            // The same alert should be BLOCKED (not allowed)
-            let allowed = should_allow_notification(&key, &cooldowns, simulated_now, cooldown_duration);
+            let allowed = should_allow(&key, &cooldowns, simulated_now, cooldown_duration);
             prop_assert!(!allowed,
                 "Alert with key '{}' should be blocked within cooldown ({} secs < 300 secs)",
                 key, elapsed_secs
@@ -186,28 +229,23 @@ mod tests {
 
         #[test]
         fn prop_same_alert_allowed_after_cooldown(alert in arb_alert_info(), extra_secs in 0u64..600) {
-            // Given: a cooldown map with an entry for this alert recorded at `base_time`
             let mut cooldowns: HashMap<String, Instant> = HashMap::new();
             let key = cooldown_key(&alert);
-            let cooldown_duration = Duration::from_secs(NOTIFICATION_COOLDOWN_SECS);
+            let cooldown_duration = Duration::from_secs(CRITICAL_COOLDOWN_SECS);
 
-            // Record initial send at `base_time`
             let base_time = Instant::now();
             cooldowns.insert(key.clone(), base_time);
 
-            // Simulate time passing: 300 seconds (cooldown) + extra_secs
-            let simulated_now = base_time + Duration::from_secs(NOTIFICATION_COOLDOWN_SECS + extra_secs);
+            let simulated_now = base_time + Duration::from_secs(CRITICAL_COOLDOWN_SECS + extra_secs);
 
-            // The same alert should be ALLOWED after cooldown expires
-            let allowed = should_allow_notification(&key, &cooldowns, simulated_now, cooldown_duration);
+            let allowed = should_allow(&key, &cooldowns, simulated_now, cooldown_duration);
             prop_assert!(allowed,
                 "Alert with key '{}' should be allowed after cooldown ({} secs >= 300 secs)",
-                key, NOTIFICATION_COOLDOWN_SECS + extra_secs
+                key, CRITICAL_COOLDOWN_SECS + extra_secs
             );
         }
     }
 
-    // Unit test: verify cooldown_key generation is deterministic and format is correct
     #[test]
     fn test_cooldown_key_format() {
         let alert = AlertInfo {
@@ -229,18 +267,16 @@ mod tests {
         assert_eq!(cooldown_key(&alert_no_process), "HighCpu:system");
     }
 
-    // Unit test: fresh cooldown map always allows notification
     #[test]
     fn test_empty_cooldowns_always_allows() {
         let cooldowns: HashMap<String, Instant> = HashMap::new();
         let now = Instant::now();
-        let cooldown_duration = Duration::from_secs(NOTIFICATION_COOLDOWN_SECS);
+        let cooldown_duration = Duration::from_secs(CRITICAL_COOLDOWN_SECS);
 
-        let allowed = should_allow_notification("MemoryLeak:chrome", &cooldowns, now, cooldown_duration);
+        let allowed = should_allow("MemoryLeak:chrome", &cooldowns, now, cooldown_duration);
         assert!(allowed);
     }
 
-    // Unit test: exactly at cooldown boundary (300 seconds) should allow
     #[test]
     fn test_exactly_at_cooldown_boundary_allows() {
         let mut cooldowns: HashMap<String, Instant> = HashMap::new();
@@ -248,9 +284,30 @@ mod tests {
         cooldowns.insert("HighCpu:firefox".to_string(), base_time);
 
         let now = base_time + Duration::from_secs(300);
-        let cooldown_duration = Duration::from_secs(NOTIFICATION_COOLDOWN_SECS);
+        let cooldown_duration = Duration::from_secs(CRITICAL_COOLDOWN_SECS);
 
-        let allowed = should_allow_notification("HighCpu:firefox", &cooldowns, now, cooldown_duration);
+        let allowed = should_allow("HighCpu:firefox", &cooldowns, now, cooldown_duration);
         assert!(allowed, "Should be allowed at exactly 300 seconds (not strictly less than)");
+    }
+
+    #[test]
+    fn test_warning_has_longer_cooldown() {
+        let mut cooldowns: HashMap<String, Instant> = HashMap::new();
+        let base_time = Instant::now();
+        cooldowns.insert("MemoryLeak:app".to_string(), base_time);
+
+        // At 6 minutes (360s), critical would allow but warning should still block
+        let now = base_time + Duration::from_secs(360);
+        let warning_cooldown = Duration::from_secs(WARNING_COOLDOWN_SECS);
+
+        let allowed = should_allow("MemoryLeak:app", &cooldowns, now, warning_cooldown);
+        assert!(!allowed, "Warning alerts should have 15-minute cooldown");
+    }
+
+    #[test]
+    fn test_startup_silence() {
+        init_start_time();
+        // Right after init, we should be in silence
+        assert!(in_startup_silence());
     }
 }

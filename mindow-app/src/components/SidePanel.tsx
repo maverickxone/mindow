@@ -144,39 +144,33 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
     <div
       className={`
         shrink-0 border-l border-border bg-secondary overflow-y-auto
-        transition-all duration-300 ease-in-out
-        ${isOpen ? "w-80 opacity-100 animate-panel-in" : "w-0 opacity-0 overflow-hidden"}
+        transition-all duration-200 ease-in-out
+        ${isOpen ? "w-72 opacity-100 animate-panel-in" : "w-0 opacity-0 overflow-hidden"}
       `}
-      style={isOpen ? { backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } : undefined}
     >
       {isOpen && selectedProcess && (
-        <div className="p-4 min-w-[320px]">
+        <div className="p-3 min-w-[288px]">
           {/* 标题栏 */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-text-primary text-sm font-semibold truncate">
-              {t("processes.detail.title")}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-text-primary text-xs font-semibold truncate">
+              {selectedProcess.name}
             </h2>
             <button
               onClick={onClose}
-              className="text-text-muted hover:text-text-primary text-lg leading-none transition-colors"
+              className="w-5 h-5 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-tertiary transition-colors"
               aria-label={t("processes.detail.close")}
             >
-              ✕
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M1 1L9 9M9 1L1 9" />
+              </svg>
             </button>
           </div>
 
           {/* 基本信息 */}
-          <div className="space-y-2 mb-4">
-            <InfoRow label={t("processes.detail.infoName")} value={selectedProcess.name} />
-            <InfoRow label={t("processes.detail.infoPid")} value={String(selectedProcess.pid)} />
-            <InfoRow
-              label={t("processes.detail.infoCpu")}
-              value={`${selectedProcess.cpu_percent.toFixed(1)}%`}
-            />
-            <InfoRow
-              label={t("processes.detail.infoMemory")}
-              value={formatBytes(selectedProcess.memory_bytes)}
-            />
+          <div className="space-y-1.5 mb-3 text-[11px]">
+            <InfoRow label="PID" value={String(selectedProcess.pid)} />
+            <InfoRow label="CPU" value={`${selectedProcess.cpu_percent.toFixed(1)}%`} />
+            <InfoRow label={t("processes.detail.infoMemory")} value={formatBytes(selectedProcess.memory_bytes)} />
             {selectedProcess.exe_path && (
               <InfoRow label={t("processes.detail.infoPath")} value={selectedProcess.exe_path} />
             )}
@@ -184,15 +178,15 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
 
           {/* 告警标注 */}
           {processAlerts.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-text-secondary text-xs font-medium mb-1">
+            <div className="mb-3">
+              <h3 className="text-text-secondary text-[11px] font-medium mb-1">
                 {t("processes.detail.activeAlerts")}
               </h3>
               <div className="space-y-1">
                 {processAlerts.map((alert, i) => (
                   <div
                     key={i}
-                    className={`text-xs px-2 py-1 rounded ${
+                    className={`text-[11px] px-2 py-1 rounded ${
                       alert.severity === "Critical"
                         ? "bg-accent-danger/10 text-accent-danger"
                         : "bg-accent-warning/10 text-accent-warning"

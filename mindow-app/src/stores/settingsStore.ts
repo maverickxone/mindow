@@ -39,15 +39,15 @@ interface SettingsState extends AppSettings {
 
 /** Apply theme to document root via data-theme attribute */
 function applyTheme(theme: ThemeMode) {
-  if (theme === "light") {
-    document.documentElement.dataset.theme = "light";
+  if (theme === "dark") {
+    document.documentElement.dataset.theme = "dark";
   } else {
     delete document.documentElement.dataset.theme;
   }
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  theme: "dark",
+  theme: "light",
   language: "zh",
   autostart: false,
   shortcut: "Ctrl+Shift+M",

@@ -6,17 +6,19 @@
     "settings": "设置"
   },
   "search": {
-    "placeholder": "搜索进程..."
+    "placeholder": "搜索进程名称或 PID..."
   },
   "processes": {
     "viewList": "列表",
     "viewTree": "树形",
+    "endTask": "结束任务",
     "columns": {
       "name": "名称",
       "pid": "PID",
       "cpu": "CPU",
       "memory": "内存",
       "disk": "磁盘",
+      "network": "网络",
       "status": "状态"
     },
     "groups": {
@@ -26,8 +28,12 @@
     },
     "contextMenu": {
       "kill": "结束进程",
+      "killTree": "结束进程树",
       "killMultiple": "结束 {{count}} 个进程",
-      "openLocation": "打开文件所在位置"
+      "openLocation": "打开文件所在位置",
+      "aiAnalyze": "AI 分析",
+      "copyName": "复制进程名",
+      "copyPid": "复制 PID"
     },
     "toast": {
       "killSuccess": "已结束进程「{{name}}」",
@@ -44,7 +50,7 @@
       "infoCpu": "CPU",
       "infoMemory": "内存",
       "infoPath": "路径",
-      "activeAlerts": "⚠ 活跃告警",
+      "activeAlerts": "活跃告警",
       "loadingHistory": "加载历史数据...",
       "loadError": "加载失败: {{error}}",
       "noData": "暂无历史数据，等待采样中...",
@@ -55,17 +61,18 @@
   "performance": {
     "cpu": "CPU",
     "memory": "内存",
-    "diskIO": "磁盘 IO",
+    "diskIO": "磁盘",
     "systemOverview": "系统概览",
     "cpuAverage": "平均",
-    "core": "核心{{index}}",
+    "core": "核心 {{index}}",
     "cores": "{{count}} 核心",
     "highest": "最高",
     "used": "已用",
     "read": "读取",
     "write": "写入",
     "cpuUsage": "CPU 使用率",
-    "memoryUsage": "内存使用",
+    "memoryUsage": "内存使用率",
+    "memoryTotal": "总内存",
     "diskRead": "磁盘读取",
     "diskWrite": "磁盘写入",
     "battery": "电池",
@@ -84,7 +91,7 @@
     "memoryUsed": "内存使用",
     "memoryTotal": "内存总量",
     "battery": "电池",
-    "greeting": "你好！我是 Mindow AI 助手。",
+    "greeting": "你好，我是 Mindow AI 助手。",
     "greetingHint": "你可以问我任何关于系统状态的问题，我会基于实时数据为你解答。",
     "inputPlaceholder": "输入你的问题…（Enter 发送，Shift+Enter 换行）",
     "send": "发送",
@@ -92,11 +99,11 @@
     "assistant": "AI 助手",
     "errorDefault": "AI 响应失败，请检查网络连接或 API 配置。",
     "errorInvoke": "调用 AI 失败，请稍后重试。",
-    "analyze": "🤖 AI 分析",
+    "analyze": "AI 分析",
     "analyzing": "AI 正在分析...",
     "analyzeLabel": "AI 分析此进程",
     "waitingResponse": "等待 AI 响应...",
-    "analysisFailed": "⚠ 分析失败",
+    "analysisFailed": "分析失败",
     "analysisSuggestion": "建议：请检查网络连接是否正常，或确认 AI API 密钥已正确配置。",
     "analyzeError": "AI 分析请求失败：{{error}}。请检查网络连接或 API 配置是否正确。"
   },

@@ -4,8 +4,8 @@
 const DEFAULT_TOP_N: usize = 25;
 const DEFAULT_INTERVAL_SECS: u64 = 10;
 const DEFAULT_CPU_THRESHOLD: f32 = 80.0;
-const DEFAULT_MEM_SAMPLES: usize = 5;
-const DEFAULT_CPU_SAMPLES: usize = 5;
+const DEFAULT_MEM_SAMPLES: usize = 15;
+const DEFAULT_CPU_SAMPLES: usize = 10;
 
 /// Validated configuration for Mindow.
 #[derive(Debug, Clone, PartialEq)]
@@ -142,8 +142,8 @@ mod tests {
         assert_eq!(config.top_n, 25);
         assert_eq!(config.interval_secs, 10);
         assert_eq!(config.cpu_threshold, 80.0);
-        assert_eq!(config.mem_samples, 5);
-        assert_eq!(config.cpu_samples, 5);
+        assert_eq!(config.mem_samples, 15);
+        assert_eq!(config.cpu_samples, 10);
     }
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
             ..Default::default()
         };
         let result = validate_config(raw);
-        assert_eq!(result.config.mem_samples, 5);
+        assert_eq!(result.config.mem_samples, 15);
         assert_eq!(result.warnings.len(), 1);
         assert!(result.warnings[0].contains("mem_samples"));
     }
@@ -251,7 +251,7 @@ mod tests {
             ..Default::default()
         };
         let result = validate_config(raw);
-        assert_eq!(result.config.cpu_samples, 5);
+        assert_eq!(result.config.cpu_samples, 10);
         assert_eq!(result.warnings.len(), 1);
         assert!(result.warnings[0].contains("cpu_samples"));
     }

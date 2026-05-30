@@ -4,6 +4,7 @@
 mod ai_bridge;
 mod commands;
 mod global_shortcut;
+mod icons;
 mod notifications;
 mod sampling;
 mod state;
@@ -43,6 +44,7 @@ fn main() {
             commands::ai_chat,
             commands::get_settings,
             commands::save_settings,
+            commands::get_process_icon,
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -92,6 +94,9 @@ fn main() {
 
             // --- Register global shortcuts ---
             global_shortcut::register_global_shortcuts(&app_handle);
+
+            // --- Initialize notification start time ---
+            notifications::init_start_time();
 
             // --- Restore saved window state (position + size) ---
             window_state::restore_window_state(&app_handle);

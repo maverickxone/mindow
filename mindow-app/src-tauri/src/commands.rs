@@ -273,6 +273,13 @@ pub fn save_settings(settings: AppSettings) -> Result<(), String> {
     Ok(())
 }
 
+/// Get the icon for a process given its exe_path. Returns a base64 data URL.
+/// Results are cached: same exe_path will return instantly on subsequent calls.
+#[tauri::command]
+pub fn get_process_icon(exe_path: String) -> Option<String> {
+    crate::icons::get_icon_base64(&exe_path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

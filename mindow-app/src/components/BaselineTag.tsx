@@ -30,7 +30,7 @@ export function BaselineTag({ deviation }: BaselineTagProps) {
   const isSevere = deviation >= 3.0;
   const colorVar = isSevere ? "var(--accent-danger)" : "var(--accent-warning)";
 
-  const label = `⬆ 高于平时 ${deviation.toFixed(1)} 倍`;
+  const label = `↑ ${deviation.toFixed(1)}x`;
 
   return (
     <span

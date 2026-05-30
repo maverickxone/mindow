@@ -20,6 +20,7 @@ export default {
         "status-safe": "var(--status-safe)",
         "status-caution": "var(--status-caution)",
         "status-unknown": "var(--status-unknown)",
+        "row-warning": "var(--row-warning)",
       },
       transitionDuration: {
         "data": "300ms",

@@ -8,16 +8,13 @@ export interface ContextMenuState {
   visible: boolean;
   x: number;
   y: number;
-  /** 右键点击的进程 */
   targetProcess: ProcessInfo | null;
-  /** 当前选中的所有进程（多选时） */
   selectedProcesses: ProcessInfo[];
 }
 
 interface ContextMenuProps {
   state: ContextMenuState;
   onClose: () => void;
-  /** 进程被终止后的回调（可用于刷新列表等） */
   onProcessKilled?: () => void;
 }
 
@@ -25,7 +22,6 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 点击外部关闭菜单
   useEffect(() => {
     if (!state.visible) return;
 
@@ -39,7 +35,6 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
       if (e.key === "Escape") onClose();
     };
 
-    // 延迟绑定，避免触发右键的 mousedown 立刻关闭
     const timer = setTimeout(() => {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleEscape);
@@ -60,77 +55,85 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
 
   const handleKillProcess = async () => {
     onClose();
-
     if (isMultiSelect) {
-      // 批量结束
-      const processes = state.selectedProcesses;
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const proc of processes) {
-        try {
-          await invoke("kill_process", { pid: proc.pid });
-          successCount++;
-        } catch {
-          failCount++;
-        }
+      let successCount = 0, failCount = 0;
+      for (const proc of state.selectedProcesses) {
+        try { await invoke("kill_process", { pid: proc.pid }); successCount++; } catch { failCount++; }
       }
-
       if (failCount === 0) {
         showToast("success", t("processes.toast.killBatchSuccess", { success: successCount }));
       } else {
         showToast("error", t("processes.toast.killBatchPartial", { success: successCount, fail: failCount }));
       }
     } else {
-      // 单个结束
       try {
         await invoke("kill_process", { pid: state.targetProcess!.pid });
         showToast("success", t("processes.toast.killSuccess", { name: state.targetProcess!.name }));
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        showToast("error", t("processes.toast.killError", { message }));
+        showToast("error", t("processes.toast.killError", { message: String(err) }));
       }
     }
-
     onProcessKilled?.();
   };
 
   const handleOpenFileLocation = async () => {
     onClose();
-
     if (!state.targetProcess?.exe_path) return;
-
     try {
       await invoke("open_file_location", { path: state.targetProcess.exe_path });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      showToast("error", t("processes.toast.openLocationError", { message }));
+      showToast("error", t("processes.toast.openLocationError", { message: String(err) }));
+    }
+  };
+
+  const handleCopyName = () => {
+    onClose();
+    if (state.targetProcess) {
+      navigator.clipboard.writeText(state.targetProcess.name);
+    }
+  };
+
+  const handleCopyPid = () => {
+    onClose();
+    if (state.targetProcess) {
+      navigator.clipboard.writeText(String(state.targetProcess.pid));
     }
   };
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[180px] bg-secondary border border-border rounded-lg shadow-xl py-1 text-sm"
+      className="fixed z-50 min-w-[180px] bg-secondary border border-border rounded-md shadow-xl py-1 text-xs"
       style={{ left: state.x, top: state.y }}
     >
-      <button
-        className="w-full text-left px-4 py-2 hover:bg-tertiary text-text-primary transition-colors"
+      <MenuItem
+        label={isMultiSelect ? t("processes.contextMenu.killMultiple", { count: processCount }) : t("processes.contextMenu.kill")}
         onClick={handleKillProcess}
-      >
-        {isMultiSelect ? t("processes.contextMenu.killMultiple", { count: processCount }) : t("processes.contextMenu.kill")}
-      </button>
-      <button
-        className={`w-full text-left px-4 py-2 transition-colors ${
-          hasExePath
-            ? "hover:bg-tertiary text-text-primary"
-            : "text-text-muted cursor-not-allowed"
-        }`}
+      />
+      <MenuItem
+        label={t("processes.contextMenu.openLocation")}
         onClick={handleOpenFileLocation}
         disabled={!hasExePath}
-      >
-        {t("processes.contextMenu.openLocation")}
-      </button>
+      />
+      <div className="my-1 border-t border-border" />
+      <MenuItem label={t("processes.contextMenu.copyName")} onClick={handleCopyName} />
+      <MenuItem label={t("processes.contextMenu.copyPid")} onClick={handleCopyPid} />
     </div>
+  );
+}
+
+function MenuItem({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      className={`w-full text-left px-4 py-1.5 transition-colors ${
+        disabled
+          ? "text-text-muted cursor-not-allowed"
+          : "hover:bg-tertiary text-text-primary"
+      }`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {label}
+    </button>
   );
 }

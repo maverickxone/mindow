@@ -189,9 +189,15 @@ impl RuleEngine {
 
     /// Checks for memory leaks by detecting monotonically increasing
     /// memory usage in trend buffers.
+    /// Requires both monotonic increase AND significant growth (>20% or >50MB).
     fn check_memory_leaks(&self) -> Vec<Alert> {
         let mut alerts = Vec::new();
         let required_samples = self.config.mem_samples;
+
+        /// Minimum relative growth to trigger a memory leak alert (20%)
+        const MIN_GROWTH_RATIO: f64 = 0.20;
+        /// Minimum absolute growth in bytes to trigger (50 MB)
+        const MIN_GROWTH_BYTES: u64 = 50 * 1024 * 1024;
 
         for &pid in self.trend_store.memory_trend_pids() {
             let trend = match self.trend_store.get_memory_trend(pid) {
@@ -211,6 +217,21 @@ impl RuleEngine {
                 .all(|w| w[1] > w[0]);
 
             if is_monotonically_increasing {
+                let start = samples[0];
+                let current = samples[samples.len() - 1];
+                let growth = current - start;
+
+                // Check if growth is significant enough
+                let relative_growth = if start > 0 {
+                    growth as f64 / start as f64
+                } else {
+                    1.0 // If starting from 0, any growth is significant
+                };
+
+                if growth < MIN_GROWTH_BYTES && relative_growth < MIN_GROWTH_RATIO {
+                    continue; // Insignificant growth, skip
+                }
+
                 let process_name = self
                     .process_names
                     .get(&pid)
@@ -220,8 +241,8 @@ impl RuleEngine {
                 alerts.push(Alert::MemoryLeak {
                     process_name,
                     pid,
-                    start_memory: samples[0],
-                    current_memory: samples[samples.len() - 1],
+                    start_memory: start,
+                    current_memory: current,
                     consecutive_samples: required_samples,
                 });
             }

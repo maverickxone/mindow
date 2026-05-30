@@ -1,14 +1,12 @@
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
 import { useProcessStore, filterProcesses, sortProcesses } from "../stores/processStore";
 import { ProcessTable } from "../components/ProcessTable";
-import { ProcessTree } from "../components/ProcessTree";
-import { SearchBar } from "../components/SearchBar";
 import { ContextMenu, type ContextMenuState } from "../components/ContextMenu";
 import { SidePanel } from "../components/SidePanel";
+import { showToast } from "../components/Toast";
 import type { ProcessInfo } from "../types";
-
-type ViewMode = "list" | "tree";
 
 const emptyContextMenu: ContextMenuState = {
   visible: false,
@@ -18,62 +16,41 @@ const emptyContextMenu: ContextMenuState = {
   selectedProcesses: [],
 };
 
-export function ProcessesPage() {
+interface ProcessesPageProps {
+  searchQuery: string;
+}
+
+export function ProcessesPage({ searchQuery }: ProcessesPageProps) {
   const { t } = useTranslation();
   const processes = useProcessStore((s) => s.processes);
+  const system = useProcessStore((s) => s.system);
   const selectedPid = useProcessStore((s) => s.selectedPid);
   const selectedPids = useProcessStore((s) => s.selectedPids);
   const selectProcess = useProcessStore((s) => s.selectProcess);
   const toggleProcessSelection = useProcessStore((s) => s.toggleProcessSelection);
   const rangeSelectProcess = useProcessStore((s) => s.rangeSelectProcess);
-  const searchQuery = useProcessStore((s) => s.searchQuery);
-  const setSearchQuery = useProcessStore((s) => s.setSearchQuery);
   const sortColumn = useProcessStore((s) => s.sortColumn);
   const sortDirection = useProcessStore((s) => s.sortDirection);
   const toggleSort = useProcessStore((s) => s.toggleSort);
 
-  // 防抖后的搜索词（由 SearchBar 内部防抖后回调设置）
-  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
-
-  // 视图模式：列表 or 树形
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
-
-  // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(emptyContextMenu);
 
-  // SearchBar 的 onSearch 回调 — 防抖已在 SearchBar 内部完成
-  const handleSearch = useCallback(
-    (query: string) => {
-      setDebouncedQuery(query);
-      setSearchQuery(query);
-    },
-    [setSearchQuery]
-  );
-
-  // 同步 store 的 searchQuery（若外部修改）
-  useEffect(() => {
-    setDebouncedQuery(searchQuery);
-  }, [searchQuery]);
-
-  // 先过滤再排序 — useMemo 确保高性能
+  // Filter and sort processes
   const filteredAndSortedProcesses = useMemo(() => {
-    const filtered = filterProcesses(processes, debouncedQuery);
+    const filtered = filterProcesses(processes, searchQuery);
     return sortProcesses(filtered, sortColumn, sortDirection);
-  }, [processes, debouncedQuery, sortColumn, sortDirection]);
+  }, [processes, searchQuery, sortColumn, sortDirection]);
 
-  // 右键菜单处理
+  // Context menu
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, process: ProcessInfo) => {
       e.preventDefault();
-
-      // 如果右键的进程不在当前选中集合中，则仅选中它
       let selected: ProcessInfo[];
       if (selectedPids.has(process.pid)) {
         selected = filteredAndSortedProcesses.filter((p) => selectedPids.has(p.pid));
       } else {
         selected = [process];
       }
-
       setContextMenu({
         visible: true,
         x: e.clientX,
@@ -89,48 +66,87 @@ export function ProcessesPage() {
     setContextMenu(emptyContextMenu);
   }, []);
 
-  // 关闭侧边面板
   const handleClosePanel = useCallback(() => {
     selectProcess(null);
   }, [selectProcess]);
 
+  // End task button handler
+  const handleEndTask = useCallback(async () => {
+    if (selectedPids.size === 0) return;
+    const pids = Array.from(selectedPids);
+    if (pids.length === 1) {
+      const proc = processes.find((p) => p.pid === pids[0]);
+      try {
+        await invoke("kill_process", { pid: pids[0] });
+        showToast("success", t("processes.toast.killSuccess", { name: proc?.name || pids[0] }));
+      } catch (err) {
+        showToast("error", t("processes.toast.killError", { message: String(err) }));
+      }
+    } else {
+      let success = 0, fail = 0;
+      for (const pid of pids) {
+        try {
+          await invoke("kill_process", { pid });
+          success++;
+        } catch { fail++; }
+      }
+      if (fail === 0) {
+        showToast("success", t("processes.toast.killBatchSuccess", { success }));
+      } else {
+        showToast("error", t("processes.toast.killBatchPartial", { success, fail }));
+      }
+    }
+  }, [selectedPids, processes, t]);
+
   return (
     <div className="flex flex-row h-full">
-      {/* 主内容区：工具栏 + 进程表格/树 */}
+      {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0">
-        {/* 工具栏：搜索 + 视图切换 */}
-        <div className="flex items-center gap-2 shrink-0 pr-3">
-          <div className="flex-1">
-            <SearchBar onSearch={handleSearch} debounceMs={100} />
-          </div>
-          <div className="flex items-center bg-tertiary border border-border rounded text-xs shrink-0">
+        {/* Toolbar: title + actions */}
+        <div className="flex items-center justify-between px-4 py-1.5 border-b border-border shrink-0">
+          <span className="text-sm font-medium text-text-primary">{t("tabs.processes")}</span>
+          <div className="flex items-center gap-2">
             <button
-              className={`px-3 py-1.5 rounded-l transition-colors ${
-                viewMode === "list"
-                  ? "bg-accent-info/20 text-accent-info"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-              onClick={() => setViewMode("list")}
-              aria-label={t("processes.viewList")}
+              onClick={handleEndTask}
+              disabled={selectedPids.size === 0}
+              className="px-3 py-1 text-xs rounded border border-border text-text-primary
+                hover:bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {t("processes.viewList")}
-            </button>
-            <button
-              className={`px-3 py-1.5 rounded-r transition-colors ${
-                viewMode === "tree"
-                  ? "bg-accent-info/20 text-accent-info"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-              onClick={() => setViewMode("tree")}
-              aria-label={t("processes.viewTree")}
-            >
-              {t("processes.viewTree")}
+              {t("processes.endTask")}
             </button>
           </div>
         </div>
 
-        {/* 视图内容 */}
-        {viewMode === "list" ? (
+        {/* Summary row */}
+        {system && (
+          <div className="flex items-center px-4 py-1 bg-tertiary/50 border-b border-border text-[11px] text-text-secondary shrink-0">
+            <div className="flex-[2] px-1"></div>
+            <div className="w-16 px-1 text-right font-medium">
+              {system.cpu_avg.toFixed(0)}%
+            </div>
+            <div className="w-24 px-1 text-right font-medium">
+              {Math.round((system.used_memory / system.total_memory) * 100)}%
+            </div>
+            <div className="w-20 px-1 text-right font-medium">
+              0 MB/s
+            </div>
+          </div>
+        )}
+
+        {/* Process table */}
+        {processes.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="flex justify-center mb-3">
+                <svg className="animate-spin h-5 w-5 text-text-muted" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              </div>
+              <p className="text-xs text-text-muted">Loading processes...</p>
+            </div>
+          </div>
+        ) : (
           <ProcessTable
             processes={filteredAndSortedProcesses}
             selectedPid={selectedPid}
@@ -143,18 +159,11 @@ export function ProcessesPage() {
             sortDirection={sortDirection}
             onToggleSort={toggleSort}
           />
-        ) : (
-          <ProcessTree
-            processes={filteredAndSortedProcesses}
-            selectedPid={selectedPid}
-            onSelectProcess={selectProcess}
-          />
         )}
       </div>
 
-      {/* 侧边详情面板 */}
+      {/* Side panel */}
       <SidePanel selectedPid={selectedPid} onClose={handleClosePanel} />
-
       <ContextMenu state={contextMenu} onClose={handleCloseContextMenu} />
     </div>
   );

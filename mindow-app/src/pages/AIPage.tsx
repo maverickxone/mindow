@@ -141,7 +141,12 @@ export function AIPage() {
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-text-muted">
-            <span className="text-4xl mb-3">🤖</span>
+            <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" className="mb-3 text-text-secondary">
+              <circle cx="8" cy="6" r="4" />
+              <path d="M4 12c0-2.2 1.8-4 4-4s4 1.8 4 4" strokeLinecap="round" />
+              <circle cx="6.5" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
+              <circle cx="9.5" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
+            </svg>
             <p className="text-sm">{t("ai.greeting")}</p>
             <p className="text-xs mt-1">{t("ai.greetingHint")}</p>
           </div>
@@ -206,7 +211,7 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
         }`}
       >
         {!isUser && (
-          <div className="text-xs text-text-muted mb-1 font-medium">🤖 {t("ai.assistant")}</div>
+          <div className="text-xs text-text-muted mb-1 font-medium">{t("ai.assistant")}</div>
         )}
         <div>{message.content || (isStreaming ? "" : "")}</div>
         {isStreaming && !message.content && (

@@ -6,28 +6,34 @@
     "settings": "Settings"
   },
   "search": {
-    "placeholder": "Search processes..."
+    "placeholder": "Search by name or PID..."
   },
   "processes": {
     "viewList": "List",
     "viewTree": "Tree",
+    "endTask": "End task",
     "columns": {
       "name": "Name",
       "pid": "PID",
       "cpu": "CPU",
       "memory": "Memory",
       "disk": "Disk",
+      "network": "Network",
       "status": "Status"
     },
     "groups": {
       "apps": "Apps",
-      "background": "Background",
-      "system": "System"
+      "background": "Background processes",
+      "system": "Windows processes"
     },
     "contextMenu": {
-      "kill": "End Process",
-      "killMultiple": "End {{count}} Processes",
-      "openLocation": "Open File Location"
+      "kill": "End task",
+      "killTree": "End process tree",
+      "killMultiple": "End {{count}} tasks",
+      "openLocation": "Open file location",
+      "aiAnalyze": "AI analyze",
+      "copyName": "Copy name",
+      "copyPid": "Copy PID"
     },
     "toast": {
       "killSuccess": "Ended process \"{{name}}\"",
@@ -44,7 +50,7 @@
       "infoCpu": "CPU",
       "infoMemory": "Memory",
       "infoPath": "Path",
-      "activeAlerts": "⚠ Active Alerts",
+      "activeAlerts": "Active Alerts",
       "loadingHistory": "Loading history...",
       "loadError": "Load failed: {{error}}",
       "noData": "No history data yet, waiting for sampling...",
@@ -55,7 +61,7 @@
   "performance": {
     "cpu": "CPU",
     "memory": "Memory",
-    "diskIO": "Disk IO",
+    "diskIO": "Disk",
     "systemOverview": "System Overview",
     "cpuAverage": "Average",
     "core": "Core {{index}}",
@@ -66,6 +72,7 @@
     "write": "Write",
     "cpuUsage": "CPU Usage",
     "memoryUsage": "Memory Usage",
+    "memoryTotal": "Total Memory",
     "diskRead": "Disk Read",
     "diskWrite": "Disk Write",
     "battery": "Battery",
@@ -84,7 +91,7 @@
     "memoryUsed": "Memory Used",
     "memoryTotal": "Memory Total",
     "battery": "Battery",
-    "greeting": "Hi! I'm the Mindow AI Assistant.",
+    "greeting": "Hi, I'm the Mindow AI Assistant.",
     "greetingHint": "Ask me anything about your system — I'll answer based on real-time data.",
     "inputPlaceholder": "Type your question… (Enter to send, Shift+Enter for new line)",
     "send": "Send",
@@ -92,11 +99,11 @@
     "assistant": "AI Assistant",
     "errorDefault": "AI response failed. Please check your network connection or API configuration.",
     "errorInvoke": "Failed to call AI. Please try again later.",
-    "analyze": "🤖 AI Analyze",
+    "analyze": "AI Analyze",
     "analyzing": "AI is analyzing...",
     "analyzeLabel": "AI analyze this process",
     "waitingResponse": "Waiting for AI response...",
-    "analysisFailed": "⚠ Analysis Failed",
+    "analysisFailed": "Analysis Failed",
     "analysisSuggestion": "Suggestion: Please check your network connection or verify your AI API key is properly configured.",
     "analyzeError": "AI analysis request failed: {{error}}. Please check your network connection or API configuration."
   },

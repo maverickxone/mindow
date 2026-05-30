@@ -1,5 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use mindow_ai::baseline::{self, BaselineStore};
@@ -26,6 +27,8 @@ pub struct AppState {
     pub knowledge_writable: bool,
     /// Notification dedup cooldown records (alert_key -> last_sent_time)
     pub notification_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    /// Whether system notifications are enabled (default: false, user can enable in settings)
+    pub notifications_enabled: AtomicBool,
 }
 
 /// Current snapshot of processes, system info, and active alerts.
@@ -133,6 +136,7 @@ impl AppState {
             knowledge: Arc::new(Mutex::new(knowledge_result.kb)),
             knowledge_writable: knowledge_result.writable,
             notification_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            notifications_enabled: AtomicBool::new(false), // Off by default
         }
     }
 }
