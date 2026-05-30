@@ -101,7 +101,7 @@ pub async fn run_interactive() {
     println!("{}", "Goodbye.".dimmed());
 }
 
-/// Show interactive command selector (up/down arrows)
+/// Show interactive command selector — displays usage info for selected command
 async fn show_command_selector() -> bool {
     use dialoguer::{Select, theme::ColorfulTheme};
 
@@ -111,41 +111,96 @@ async fn show_command_selector() -> bool {
         "/report      - AI system report",
         "/config      - View/edit config",
         "/baseline    - View baselines",
+        "/knowledge   - View knowledge base",
         "/clear       - Clear screen",
         "/quit        - Exit",
     ];
 
     let selection = Select::with_theme(&ColorfulTheme::default())
-        .with_prompt("Select command")
+        .with_prompt("Select command for usage info")
         .items(&commands)
         .default(0)
         .interact_opt();
 
     match selection {
         Ok(Some(idx)) => {
+            println!();
             match idx {
-                0 => { handle_slash_command("/status").await; }
-                1 => {
-                    // Ask for process name
-                    print!("  Process name or PID: ");
-                    use std::io::{self, Write, BufRead};
-                    io::stdout().flush().ok();
-                    let mut query = String::new();
-                    io::stdin().lock().read_line(&mut query).ok();
-                    let query = query.trim();
-                    if !query.is_empty() {
-                        handle_slash_command(&format!("/search {}", query)).await;
-                    }
+                0 => {
+                    println!("{}", "+-- /status --------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "Show system resource snapshot".bright_white());
+                    println!("{}  {}", "|".cyan(), "Usage:".bold());
+                    println!("{}    {}", "|".cyan(), "/status");
+                    println!("{}    {}", "|".cyan(), "/s".dimmed());
+                    println!("{}", "+-------------------------------------------+".cyan());
                 }
-                2 => { handle_slash_command("/report").await; }
-                3 => { handle_slash_command("/config").await; }
-                4 => { handle_slash_command("/baseline").await; }
-                5 => { handle_slash_command("/clear").await; }
-                6 => return true,
+                1 => {
+                    println!("{}", "+-- /search --------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "Analyze a process with AI".bright_white());
+                    println!("{}  {}", "|".cyan(), "Usage:".bold());
+                    println!("{}    {}", "|".cyan(), "/search <name>           Search by name");
+                    println!("{}    {}", "|".cyan(), "/search <PID>            Search by PID");
+                    println!("{}    {}", "|".cyan(), "/search <name> --refresh  Re-query AI (skip cache)");
+                    println!("{}  {}", "|".cyan(), "Examples:".bold());
+                    println!("{}    {}  {}  {}", "|".cyan(), "/search chrome", " ", "/search kiro --refresh".dimmed());
+                    println!("{}", "+-------------------------------------------+".cyan());
+                }
+                2 => {
+                    println!("{}", "+-- /report --------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "Generate AI system analysis report".bright_white());
+                    println!("{}  {}", "|".cyan(), "Usage:".bold());
+                    println!("{}    {}", "|".cyan(), "/report              Full AI report (streaming)");
+                    println!("{}  {}", "|".cyan(), "Report saved to ~/.mindow/reports/".dimmed());
+                    println!("{}", "+-------------------------------------------+".cyan());
+                }
+                3 => {
+                    println!("{}", "+-- /config ---------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "View or edit AI configuration".bright_white());
+                    println!("{}  {}", "|".cyan(), "Usage:".bold());
+                    println!("{}    {}", "|".cyan(), "/config               Show current config");
+                    println!("{}    {}", "|".cyan(), "/config set <key> <value>  Set a field");
+                    println!("{}  {}", "|".cyan(), "Keys:".bold());
+                    println!("{}    {}", "|".cyan(), "provider, model, api_key, base_url, language");
+                    println!("{}  {}", "|".cyan(), "Examples:".bold());
+                    println!("{}    {}", "|".cyan(), "/config set language cn");
+                    println!("{}    {}", "|".cyan(), "/config set model deepseek-v4-pro");
+                    println!("{}", "+--------------------------------------------+".cyan());
+                }
+                4 => {
+                    println!("{}", "+-- /baseline -------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "View learned process baselines".bright_white());
+                    println!("{}  {}", "|".cyan(), "Usage:".bold());
+                    println!("{}    {}", "|".cyan(), "/baseline            Show top 20 by memory");
+                    println!("{}    {}  {}", "|".cyan(), "/b", "              (shortcut)".dimmed());
+                    println!("{}  {}", "|".cyan(), "Baselines auto-update on /status".dimmed());
+                    println!("{}", "+--------------------------------------------+".cyan());
+                }
+                5 => {
+                    println!("{}", "+-- /knowledge -----------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "View cached AI process knowledge".bright_white());
+                    println!("{}  {}", "|".cyan(), "Usage:".bold());
+                    println!("{}    {}", "|".cyan(), "/knowledge           Show all cached entries");
+                    println!("{}    {}  {}", "|".cyan(), "/k", "              (shortcut)".dimmed());
+                    println!("{}  {}", "|".cyan(), "Clear with: mindow knowledge clear".dimmed());
+                    println!("{}", "+--------------------------------------------+".cyan());
+                }
+                6 => {
+                    println!("{}", "+-- /clear ----------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "Clear the terminal screen".bright_white());
+                    println!("{}    {}", "|".cyan(), "/clear    /cls");
+                    println!("{}", "+--------------------------------------------+".cyan());
+                }
+                7 => {
+                    println!("{}", "+-- /quit -----------------------------------+".cyan());
+                    println!("{}  {}", "|".cyan(), "Exit interactive mode".bright_white());
+                    println!("{}    {}", "|".cyan(), "/quit   /exit   /q   Ctrl+C x2");
+                    println!("{}", "+--------------------------------------------+".cyan());
+                }
                 _ => {}
             }
+            println!();
         }
-        Ok(None) | Err(_) => {} // cancelled
+        Ok(None) | Err(_) => {}
     }
     false
 }
@@ -164,10 +219,14 @@ async fn handle_slash_command(input: &str) -> bool {
 
         "/search" => {
             if parts.len() < 2 {
-                println!("{}", "Usage: /search <process name or PID>".yellow());
+                println!("{}", "Usage: /search <name> [--refresh]".yellow());
             } else {
-                let query = parts[1..].join(" ");
-                run_search(&query).await;
+                let args = parts[1..].join(" ");
+                let refresh = args.contains("--refresh");
+                let query = args.replace("--refresh", "").trim().to_string();
+                if !query.is_empty() {
+                    run_search(&query, refresh).await;
+                }
             }
         }
 
@@ -215,6 +274,7 @@ async fn handle_slash_command(input: &str) -> bool {
                         );
                         println!("  {} {}", "base_url:".bold(), config.base_url);
                         println!("  {} {}", "language:".bold(), config.language);
+                        println!("  {}", "(change with: /config set language cn)".dimmed());
                     }
                     Err(e) => println!("{}", format!("Error: {}", e).red()),
                 }
@@ -252,8 +312,42 @@ async fn handle_slash_command(input: &str) -> bool {
             }
         }
 
+        "/knowledge" | "/k" => {
+            let kb = ai::knowledge::load_knowledge();
+            if kb.entries.is_empty() {
+                println!("{}", "No knowledge cached. Run /search <process> first.".dimmed());
+            } else {
+                println!();
+                let mut entries: Vec<_> = kb.entries.iter().collect();
+                entries.sort_by_key(|(name, _)| name.to_string());
+                for (name, info) in entries {
+                    let risk_colored = match info.risk.as_str() {
+                        "safe" => "safe".green().bold().to_string(),
+                        "caution" => "caution".yellow().bold().to_string(),
+                        "suspicious" => "suspicious".red().bold().to_string(),
+                        other => other.to_string(),
+                    };
+                    let header = format!("+-- {} ", name);
+                    let border = format!("{}{}+", header, "-".repeat(50usize.saturating_sub(header.len())));
+                    println!("{}", border.cyan());
+                    println!("{}  {:<12} {}", "|".cyan(), "Type:".bright_white(), info.category.cyan());
+                    println!("{}  {:<12} {}", "|".cyan(), "Desc:".bright_white(), info.description);
+                    println!("{}  {:<12} {}", "|".cyan(), "Memory:".bright_white(), info.typical_memory);
+                    println!("{}  {:<12} {}", "|".cyan(), "Risk:".bright_white(), risk_colored);
+                    if !info.advice.is_empty() {
+                        println!("{}  {:<12} {}", "|".cyan(), "Advice:".bright_white(), info.advice);
+                    }
+                    println!("{}  {:<12} {}", "|".cyan(), "Updated:".dimmed(), info.updated.dimmed());
+                    println!("{}", format!("+{}+", "-".repeat(49)).cyan());
+                    println!();
+                }
+            }
+        }
+
         "/clear" | "/cls" => {
             print!("\x1B[2J\x1B[1;1H");
+            use std::io::Write;
+            std::io::stdout().flush().ok();
         }
 
         _ => {
@@ -300,7 +394,7 @@ async fn run_status() {
 }
 
 /// Run search command inline
-async fn run_search(query: &str) {
+async fn run_search(query: &str, refresh: bool) {
     use std::thread;
     use std::time::Duration;
 
@@ -356,16 +450,18 @@ async fn run_search(query: &str) {
 
     // Check cache
     let kb = ai::knowledge::load_knowledge();
-    if let Some(cached) = ai::knowledge::lookup(&kb, process_name) {
-        crate::display_search_result(
-            process_name,
-            cached,
-            memory_mb,
-            process_count,
-            true,
-            &baseline_summary,
-        );
-        return;
+    if !refresh {
+        if let Some(cached) = ai::knowledge::lookup(&kb, process_name) {
+            crate::display_search_result(
+                process_name,
+                cached,
+                memory_mb,
+                process_count,
+                true,
+                &baseline_summary,
+            );
+            return;
+        }
     }
 
     // Load AI config
@@ -389,6 +485,11 @@ async fn run_search(query: &str) {
 
     // Web search
     let search_context = ai::websearch::search_process_info(process_name).await;
+    if search_context.is_some() {
+        println!("  {}", "(web search: found context)".dimmed());
+    } else {
+        println!("  {}", "(web search: no results)".dimmed());
+    }
 
     // Build prompt
     let system_prompt =
@@ -402,6 +503,7 @@ async fn run_search(query: &str) {
         process_count,
         &baseline_summary,
         &search_context,
+        &ai_config.language,
     );
 
     // Spinner

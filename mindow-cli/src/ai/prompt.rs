@@ -174,7 +174,8 @@ fn format_alerts(alerts: &[Alert]) -> String {
 }
 
 /// Build the AI prompt for process search.
-/// Requests response in English to avoid encoding issues across terminal types.
+/// Requests response in JSON format. Language parameter controls whether
+/// description/advice fields should be in Chinese or English.
 pub fn build_search_prompt(
     process_name: &str,
     exe_path: &Option<String>,
@@ -183,6 +184,7 @@ pub fn build_search_prompt(
     process_count: usize,
     baseline_summary: &Option<String>,
     web_search_context: &Option<String>,
+    language: &str,
 ) -> String {
     let mut prompt = format!(
         "I see a process called \"{}\" (running {} instances)\n\
@@ -203,19 +205,31 @@ pub fn build_search_prompt(
             "\nWeb search results about this process:\n{}\n",
             context
         ));
+    } else {
+        prompt.push_str("\n(No web search results available for this process.)\n");
     }
 
     prompt.push_str(
-        "\nTell me:\n\
-         1. What is this software? (one sentence)\n\
-         2. Category (e.g. Browser, IDE, System Service, Game, etc.)\n\
-         3. Typical memory usage range\n\
-         4. Risk level: safe / caution / suspicious\n\
+        "\nCRITICAL RULES:\n\
+         - Do NOT claim a process is malware/miner/virus unless you have CONCRETE EVIDENCE from the web search results above.\n\
+         - If you don't recognize the software, say so honestly: \"Unknown application\" and set risk to \"caution\" (NOT \"suspicious\").\n\
+         - If you are guessing, clearly state it is a guess in the description.\n\
+         - High memory/CPU usage alone is NOT evidence of malware. Many legitimate apps (IDEs, browsers, game engines) use 2+ GB.\n\
+         - A non-standard install path (like D:\\) is common for user-installed software and is NOT suspicious by itself.\n\n\
+         Tell me:\n\
+         1. What is this software? (one sentence. If unknown, say \"Unknown - possibly [your best guess]\")\n\
+         2. Category (e.g. Browser, IDE, System Service, Game, Unknown, etc.)\n\
+         3. Typical memory usage range (or \"Unknown\" if you don't know)\n\
+         4. Risk level: safe / caution / suspicious (use \"caution\" for unknown, \"suspicious\" ONLY with evidence)\n\
          5. Any advice\n\n\
          Reply in this JSON format ONLY:\n\
          {\"description\": \"...\", \"category\": \"...\", \"typical_memory\": \"...\", \"risk\": \"safe|caution|suspicious\", \"advice\": \"...\"}\n\
          Output JSON only, nothing else.",
     );
+
+    if language == "cn" {
+        prompt.push_str("\nIMPORTANT: Write the description and advice fields in Chinese.");
+    }
 
     prompt
 }

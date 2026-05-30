@@ -1,4 +1,4 @@
-use std::time::Duration;
+﻿use std::time::Duration;
 
 use colored::Colorize;
 use mindow_core::types::{
@@ -57,12 +57,12 @@ fn render_system(system: &SystemSample) {
     // CPU
     let cpu_bar = bar_high_bad(avg_cpu as f64, 100.0);
     let cpu_val = color_high_bad(avg_cpu, &format!("{:.1}%", avg_cpu));
-    println!("  CPU:     {}  {}", cpu_bar, cpu_val);
+    println!("  {}     {}  {}", "CPU:".bright_white().bold(), cpu_bar, cpu_val);
 
     // Memory
     let mem_bar = bar_high_bad(mem_pct, 100.0);
     let mem_val = color_high_bad(mem_pct as f32, &format!("{:.1}% ({:.1}/{:.1} GB)", mem_pct, mem_used, mem_total));
-    println!("  Memory:  {}  {}", mem_bar, mem_val);
+    println!("  {}  {}  {}", "Memory:".bright_white().bold(), mem_bar, mem_val);
 
     // Battery
     match &system.battery {
@@ -75,10 +75,10 @@ fn render_system(system: &SystemSample) {
             };
             let bat_bar = bar_high_good(*level as f64, 100.0);
             let bat_val = color_high_good(*level, &format!("{:.0}% ({})", level, state));
-            println!("  Battery: {}  {}", bat_bar, bat_val);
+            println!("  {} {}  {}", "Battery:".bright_white().bold(), bat_bar, bat_val);
         }
         BatteryStatus::Unavailable => {
-            println!("  Battery: {}", "N/A".dimmed());
+            println!("  {} {}", "Battery:".bright_white().bold(), "N/A".dimmed());
         }
     }
     println!("{}", "=".repeat(WIDTH).dimmed());
@@ -94,7 +94,7 @@ fn render_processes(grouped: &[GroupedProcess]) {
     // Header
     println!(
         "  {:<28} {:>7} {:>9}  {}",
-        "NAME".bold(), "CPU%".bold(), "MEMORY".bold(), "ST".bold()
+        "NAME".bold().cyan(), "CPU%".bold().cyan(), "MEMORY".bold().cyan(), "ST".bold().cyan()
     );
     println!("  {}", "-".repeat(WIDTH - 4));
 
@@ -118,9 +118,7 @@ fn render_processes(grouped: &[GroupedProcess]) {
             PathStatus::Suspicious => name_pad.yellow().to_string(),
             PathStatus::Unknown => name_pad.dimmed().to_string(),
             PathStatus::Standard => {
-                if mem > 1_000_000_000 { name_pad.bright_white().bold().to_string() }
-                else if mem > 500_000_000 { name_pad.white().to_string() }
-                else { name_pad.normal().to_string() }
+                name_pad.bright_white().to_string()
             }
         };
 
@@ -128,18 +126,17 @@ fn render_processes(grouped: &[GroupedProcess]) {
         let cpu_c = if cpu > 80.0 { cpu_pad.red().bold().to_string() }
             else if cpu > 40.0 { cpu_pad.yellow().to_string() }
             else if cpu > 10.0 { cpu_pad.white().to_string() }
-            else if cpu > 0.5 { cpu_pad.normal().to_string() }
-            else { cpu_pad.dimmed().to_string() };
+            else { cpu_pad.green().to_string() };
 
         // Color memory by size
         let mem_c = if mem > 1_000_000_000 { mem_pad.red().bold().to_string() }
             else if mem > 500_000_000 { mem_pad.yellow().to_string() }
             else if mem > 200_000_000 { mem_pad.white().to_string() }
-            else { mem_pad.normal().to_string() };
+            else { mem_pad.green().to_string() };
 
         // Status
         let st = match proc.path_status {
-            PathStatus::Standard => "OK".green().to_string(),
+            PathStatus::Standard => "OK".green().bold().to_string(),
             PathStatus::Suspicious => "(!)".yellow().bold().to_string(),
             PathStatus::Unknown => "(?)".dimmed().to_string(),
         };
@@ -148,7 +145,7 @@ fn render_processes(grouped: &[GroupedProcess]) {
 
         // Separator every 5 rows
         if (i + 1) % 5 == 0 && i + 1 < grouped.len() {
-            println!("  {}", ".".repeat(WIDTH - 4).dimmed());
+            println!("  {}", ".".repeat(WIDTH - 4).dimmed().dimmed());
         }
     }
     println!("{}", "=".repeat(WIDTH).dimmed());

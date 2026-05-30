@@ -76,11 +76,19 @@ enum Commands {
     Search {
         /// Process name or PID
         query: String,
+        /// Skip cache and re-query AI
+        #[arg(long)]
+        refresh: bool,
     },
     /// Baseline management
     Baseline {
         #[command(subcommand)]
         action: BaselineAction,
+    },
+    /// Knowledge base management
+    Knowledge {
+        #[command(subcommand)]
+        action: KnowledgeAction,
     },
 }
 
@@ -90,6 +98,14 @@ enum BaselineAction {
     Show,
     /// Reset baseline data
     Reset,
+}
+
+#[derive(Subcommand)]
+enum KnowledgeAction {
+    /// Show all cached process knowledge
+    Show,
+    /// Clear all cached knowledge (forces re-query on next search)
+    Clear,
 }
 
 #[derive(Subcommand)]
@@ -447,7 +463,7 @@ async fn main() {
                 }
             }
         }
-        Some(Commands::Search { query }) => {
+        Some(Commands::Search { query, refresh }) => {
             use std::thread;
             use std::time::Duration;
             use indicatif::ProgressBar;
@@ -511,11 +527,13 @@ async fn main() {
 
             // 4. Check knowledge base cache
             let kb = ai::knowledge::load_knowledge();
-            if let Some(cached) = ai::knowledge::lookup(&kb, process_name) {
-                // Display cached result with GROUPED totals
-                let baseline_info = ai::baseline::get_baseline_summary(&baseline_store, process_name);
-                display_search_result(process_name, cached, memory_mb, process_count, true, &baseline_info);
-                return;
+            if !refresh {
+                if let Some(cached) = ai::knowledge::lookup(&kb, process_name) {
+                    // Display cached result with GROUPED totals
+                    let baseline_info = ai::baseline::get_baseline_summary(&baseline_store, process_name);
+                    display_search_result(process_name, cached, memory_mb, process_count, true, &baseline_info);
+                    return;
+                }
             }
 
             // 5. No cache -- call AI
@@ -538,6 +556,11 @@ async fn main() {
 
             // Web search for context
             let search_context = ai::websearch::search_process_info(process_name).await;
+            if search_context.is_some() {
+                eprintln!("  (web search: found context)");
+            } else {
+                eprintln!("  (web search: no results)");
+            }
 
             // Build prompt
             let system_prompt = "You are a Windows process analyst. Analyze the given process information and identify what it is.".to_string();
@@ -549,6 +572,7 @@ async fn main() {
                 process_count,
                 &baseline_summary,
                 &search_context,
+                &ai_config.language,
             );
 
             // Show spinner
@@ -660,6 +684,49 @@ async fn main() {
                     let store = ai::baseline::BaselineStore::default();
                     match ai::baseline::save_baselines(&store) {
                         Ok(()) => println!("Baselines reset. Will re-learn from next status/watch run."),
+                        Err(e) => eprintln!("Error: {}", e),
+                    }
+                }
+            }
+        }
+        Some(Commands::Knowledge { action }) => {
+            use colored::Colorize;
+            match action {
+                KnowledgeAction::Show => {
+                    let kb = ai::knowledge::load_knowledge();
+                    if kb.entries.is_empty() {
+                        println!("{}", "No knowledge cached. Run /search <process> first.".dimmed());
+                        return;
+                    }
+                    println!();
+                    let mut entries: Vec<_> = kb.entries.iter().collect();
+                    entries.sort_by_key(|(name, _)| name.to_string());
+                    for (name, info) in entries {
+                        let risk_colored = match info.risk.as_str() {
+                            "safe" => "safe".green().bold().to_string(),
+                            "caution" => "caution".yellow().bold().to_string(),
+                            "suspicious" => "suspicious".red().bold().to_string(),
+                            other => other.to_string(),
+                        };
+                        let header = format!("+-- {} ", name);
+                        let border = format!("{}{}+", header, "-".repeat(50usize.saturating_sub(header.len())));
+                        println!("{}", border.cyan());
+                        println!("{}  {:<12} {}", "|".cyan(), "Type:".bright_white(), info.category.cyan());
+                        println!("{}  {:<12} {}", "|".cyan(), "Desc:".bright_white(), info.description);
+                        println!("{}  {:<12} {}", "|".cyan(), "Memory:".bright_white(), info.typical_memory);
+                        println!("{}  {:<12} {}", "|".cyan(), "Risk:".bright_white(), risk_colored);
+                        if !info.advice.is_empty() {
+                            println!("{}  {:<12} {}", "|".cyan(), "Advice:".bright_white(), info.advice);
+                        }
+                        println!("{}  {:<12} {}", "|".cyan(), "Updated:".dimmed(), info.updated.dimmed());
+                        println!("{}", format!("+{}+", "-".repeat(49)).cyan());
+                        println!();
+                    }
+                }
+                KnowledgeAction::Clear => {
+                    let kb = ai::knowledge::KnowledgeBase::default();
+                    match ai::knowledge::save_knowledge(&kb) {
+                        Ok(()) => println!("Knowledge base cleared. Next search will re-query AI."),
                         Err(e) => eprintln!("Error: {}", e),
                     }
                 }
