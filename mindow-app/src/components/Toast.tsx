@@ -43,108 +43,19 @@ export function showToast(
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function SuccessIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      className="shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M5 8l2 2 4-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ErrorIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      className="shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M6 6l4 4M10 6l-4 4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function WarningIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      className="shrink-0"
-      aria-hidden="true"
-    >
-      <path
-        d="M8 1.5l6.93 12H1.07L8 1.5z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 6v3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
-    </svg>
-  );
-}
-
-function InfoIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      className="shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M8 7v4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <circle cx="8" cy="4.5" r="0.75" fill="currentColor" />
-    </svg>
-  );
-}
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from "./icons";
 
 function getToastIcon(type: ToastType) {
+  const props = { size: 16, strokeWidth: 1.5, className: "shrink-0" };
   switch (type) {
     case "success":
-      return <SuccessIcon />;
+      return <CheckCircle2 {...props} />;
     case "error":
-      return <ErrorIcon />;
+      return <AlertCircle {...props} />;
     case "warning":
-      return <WarningIcon />;
+      return <AlertTriangle {...props} />;
     case "info":
-      return <InfoIcon />;
+      return <Info {...props} />;
   }
 }
 
@@ -255,20 +166,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
           className="shrink-0 ml-1 p-0.5 rounded hover:bg-white/20 transition-colors duration-fast focus-ring"
           aria-label="Close notification"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M3 3l6 6M9 3l-6 6"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
+          <X size={12} strokeWidth={2} />
         </button>
       )}
     </div>

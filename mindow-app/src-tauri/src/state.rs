@@ -23,8 +23,10 @@ pub struct AppState {
     /// Whether baselines can be safely written to disk
     pub baselines_writable: bool,
     /// Knowledge base
+    #[allow(dead_code)]
     pub knowledge: Arc<Mutex<KnowledgeBase>>,
     /// Whether knowledge base can be safely written to disk
+    #[allow(dead_code)]
     pub knowledge_writable: bool,
     /// Notification dedup cooldown records (alert_key -> last_sent_time)
     pub notification_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,

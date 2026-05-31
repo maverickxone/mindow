@@ -28,6 +28,7 @@ export default {
         "color-memory": "var(--color-memory)",
         "color-disk": "var(--color-disk)",
         "color-disk-write": "var(--color-disk-write)",
+        "color-battery": "var(--color-battery)",
 
         /* Heat scale */
         "heat-safe": "var(--heat-safe)",

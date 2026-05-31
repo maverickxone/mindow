@@ -28,11 +28,12 @@
   --accent: hsl(210, 85%, 45%);
   --accent-hover: hsl(210, 85%, 38%);
 
-  /* ── Resource Colors (distinct hues per resource type) ── */
-  --color-cpu: hsl(168, 60%, 40%);
-  --color-memory: hsl(230, 55%, 50%);
-  --color-disk: hsl(38, 80%, 50%);
-  --color-disk-write: hsl(25, 85%, 50%);
+  /* ── Resource Colors (visible, distinct per resource) ── */
+  --color-cpu: hsl(168, 55%, 38%);
+  --color-memory: hsl(215, 65%, 48%);
+  --color-disk: hsl(38, 75%, 45%);
+  --color-disk-write: hsl(25, 80%, 45%);
+  --color-battery: hsl(142, 60%, 38%);
 
   /* ── Heat Scale (green→yellow→red pressure gradient) ── */
   --heat-safe: hsl(142, 60%, 45%);
@@ -118,11 +119,12 @@
   --accent: hsl(210, 85%, 65%);
   --accent-hover: hsl(210, 85%, 72%);
 
-  /* ── Resource Colors (adjusted lightness for dark bg) ── */
-  --color-cpu: hsl(168, 65%, 55%);
-  --color-memory: hsl(230, 60%, 65%);
-  --color-disk: hsl(38, 75%, 60%);
-  --color-disk-write: hsl(25, 80%, 60%);
+  /* ── Resource Colors (brighter for dark bg readability) ── */
+  --color-cpu: hsl(168, 55%, 52%);
+  --color-memory: hsl(215, 65%, 62%);
+  --color-disk: hsl(38, 70%, 58%);
+  --color-disk-write: hsl(25, 75%, 55%);
+  --color-battery: hsl(142, 60%, 50%);
 
   /* ── Heat Scale (same hues, adjusted for dark bg) ── */
   --heat-safe: hsl(142, 60%, 50%);
@@ -290,4 +292,51 @@ body {
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   Win11 Selection Indicator (pill bar on left edge)
+   ============================================================ */
+
+/* Active pill indicator — 3px rounded accent bar on left edge */
+.nav-pill-active {
+  position: relative;
+}
+
+.nav-pill-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--accent);
+  transition: opacity var(--duration-fast);
+}
+
+/* Chart container border — mimics Win11 performance chart frame: barely visible */
+.chart-frame {
+  border: 1px solid rgba(128, 128, 128, 0.12);
+  border-radius: 2px;
+  padding: 4px 0 0 0;
+  background: var(--surface-0);
+}
+
+/* Metric card selected state — left pill + subtle bg */
+.metric-card-selected {
+  position: relative;
+  background: var(--state-selected);
+  border-radius: var(--radius-md);
+}
+
+.metric-card-selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--accent);
 }

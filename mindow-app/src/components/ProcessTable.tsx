@@ -4,49 +4,36 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProcessStore } from "../stores/processStore";
 import { BaselineTag } from "./BaselineTag";
 import { ProcessIcon } from "./ProcessIcon";
+import { ChevronRight, ArrowUp, ArrowDown } from "./icons";
 import { formatBytes, formatPercent, formatDiskRate } from "../lib/format";
 import { getResourceHeatBg } from "../lib/heat";
 import type { ProcessInfo, AlertInfo } from "../types";
 import type { SortColumn, SortDirection } from "../stores/processStore";
 
-/* ─── SVG Icons ─── */
+/* ─── Icons ─── */
 
 /** Chevron icon for expand/collapse (points right, rotates 90° when expanded) */
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="transition-transform duration-150"
+    <span
+      className="inline-flex transition-transform duration-150"
       style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
     >
-      <path d="M3.5 2 L6.5 5 L3.5 8" />
-    </svg>
+      <ChevronRight size={12} strokeWidth={2} />
+    </span>
   );
 }
 
-/** Sort arrow icon (�?or �? */
+/** Sort arrow icon */
 function SortArrowIcon({ direction }: { direction: "asc" | "desc" }) {
   return (
-    <svg
-      width="8"
-      height="8"
-      viewBox="0 0 8 8"
-      fill="currentColor"
-      className="inline-block ml-0.5 text-accent-info shrink-0"
-    >
+    <span className="inline-flex ml-0.5 text-accent-info shrink-0">
       {direction === "asc" ? (
-        <path d="M4 1 L7 6 L1 6 Z" />
+        <ArrowUp size={10} strokeWidth={2.5} />
       ) : (
-        <path d="M4 7 L1 2 L7 2 Z" />
+        <ArrowDown size={10} strokeWidth={2.5} />
       )}
-    </svg>
+    </span>
   );
 }
 

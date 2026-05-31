@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useProcessStore } from "../stores/processStore";
 import { showToast } from "./Toast";
+import { Minus, Square, Copy, X, Search } from "./icons";
 
 interface TitleBarProps {
   searchQuery: string;
@@ -92,12 +93,7 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
     >
       {/* Left: App icon + name */}
       <div className="flex items-center gap-2 px-3">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-accent-info pointer-events-none">
-          <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-          <rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-          <rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-          <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
+        <MindowLogo />
         <span className="text-xs font-medium text-text-primary pointer-events-none">Mindow</span>
         {/* Compact battery indicator (Req 23.2) */}
         {batteryLevel != null && (
@@ -111,13 +107,11 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
       {/* Center: Search bar */}
       <div className="flex-1 flex justify-center px-4">
         <div className="relative w-full max-w-sm">
-          <svg
+          <Search
+            size={13}
+            strokeWidth={2}
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-            width="13" height="13" viewBox="0 0 16 16" fill="none"
-          >
-            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M11 11L14.5 14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          />
           <input
             type="text"
             value={searchQuery}
@@ -133,9 +127,7 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
               className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors focus-ring"
               aria-label="Clear search"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M2 2L10 10M10 2L2 10" />
-              </svg>
+              <X size={12} strokeWidth={2} />
             </button>
           )}
         </div>
@@ -148,9 +140,7 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
           className="w-11 h-full flex items-center justify-center hover:bg-tertiary transition-colors focus-ring"
           aria-label="Minimize"
         >
-          <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor" className="text-text-primary">
-            <rect width="10" height="1" />
-          </svg>
+          <Minus size={12} strokeWidth={2} className="text-text-primary" />
         </button>
         <button
           onClick={handleMaximize}
@@ -158,14 +148,9 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
           aria-label="Maximize"
         >
           {isMaximized ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-text-primary">
-              <rect x="2" y="0" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1" />
-              <rect x="0" y="2" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1" fill="var(--bg-secondary)" />
-            </svg>
+            <Copy size={11} strokeWidth={1.5} className="text-text-primary" />
           ) : (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-text-primary">
-              <rect x="0.5" y="0.5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1" />
-            </svg>
+            <Square size={11} strokeWidth={1.5} className="text-text-primary" />
           )}
         </button>
         <button
@@ -173,10 +158,7 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
           className="w-11 h-full flex items-center justify-center hover:bg-[#c42b1c] hover:text-white transition-colors group focus-ring"
           aria-label="Close"
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"
-            className="text-text-primary group-hover:text-white">
-            <path d="M1 1L9 9M9 1L1 9" />
-          </svg>
+          <X size={12} strokeWidth={2} className="text-text-primary group-hover:text-white" />
         </button>
       </div>
     </div>
@@ -200,6 +182,33 @@ function TitleBarBatteryIcon({ level, charging }: { level: number; charging: boo
       {charging && (
         <path d="M7 2 L5.5 5 L7 5 L6 8 L9 4.5 L7.5 4.5 Z" fill="var(--accent)" />
       )}
+    </svg>
+  );
+}
+
+/**
+ * Mindow brand logo — a stylized window frame with an activity pulse line.
+ * Represents "mind" (intelligence) + "window" (system insight).
+ */
+function MindowLogo() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="pointer-events-none shrink-0">
+      {/* Window frame */}
+      <rect x="2" y="3" width="20" height="18" rx="3" stroke="var(--accent)" strokeWidth="1.8" />
+      {/* Title bar divider */}
+      <line x1="2" y1="8" x2="22" y2="8" stroke="var(--accent)" strokeWidth="1.2" opacity="0.5" />
+      {/* Activity pulse line inside the window — monitoring heartbeat */}
+      <polyline
+        points="5,15 8,13 10,16 13,11 16,14 19,12"
+        stroke="var(--accent)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Dot accents in title bar */}
+      <circle cx="5" cy="5.5" r="1" fill="var(--accent)" opacity="0.6" />
+      <circle cx="8" cy="5.5" r="1" fill="var(--accent)" opacity="0.4" />
     </svg>
   );
 }

@@ -7,6 +7,7 @@ import { formatDiskRate, formatPercent } from "../lib/format";
 import { ContextMenu, type ContextMenuState } from "../components/ContextMenu";
 import { SidePanel } from "../components/SidePanel";
 import { showToast } from "../components/Toast";
+import { Loader2 } from "../components/icons";
 import type { ProcessInfo } from "../types";
 
 const emptyContextMenu: ContextMenuState = {
@@ -147,10 +148,7 @@ export function ProcessesPage({ searchQuery }: ProcessesPageProps) {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="flex justify-center mb-3">
-              <svg className="animate-spin h-5 w-5 text-text-muted" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Loader2 size={20} strokeWidth={2} className="animate-spin text-text-muted" />
             </div>
             <p className="text-xs text-text-muted">{t("processes.loading")}</p>
           </div>

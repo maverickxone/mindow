@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { showToast } from "./Toast";
+import { XCircle, FolderOpen, ClipboardCopy, Hash } from "./icons";
 import type { ProcessInfo } from "../types";
 
 export interface ContextMenuState {
@@ -16,86 +17,6 @@ interface ContextMenuProps {
   state: ContextMenuState;
   onClose: () => void;
   onProcessKilled?: () => void;
-}
-
-/* ── Inline SVG Icons (lucide-style, stroke-width: var(--stroke-icon)) ── */
-
-function IconXCircle({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6" />
-      <path d="m9 9 6 6" />
-    </svg>
-  );
-}
-
-function IconFolderOpen({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function IconCopy({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-    </svg>
-  );
-}
-
-function IconHash({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="4" x2="20" y1="9" y2="9" />
-      <line x1="4" x2="20" y1="15" y2="15" />
-      <line x1="10" x2="8" y1="3" y2="21" />
-      <line x1="16" x2="14" y1="3" y2="21" />
-    </svg>
-  );
 }
 
 export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProps) {
@@ -204,20 +125,20 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
       style={{ left: pos.left, top: pos.top }}
     >
       <MenuItem
-        icon={<IconXCircle />}
+        icon={<XCircle size={14} strokeWidth={1.5} />}
         label={isMultiSelect ? t("processes.contextMenu.killMultiple", { count: processCount }) : t("processes.contextMenu.kill")}
         onClick={handleKillProcess}
         danger
       />
       <MenuItem
-        icon={<IconFolderOpen />}
+        icon={<FolderOpen size={14} strokeWidth={1.5} />}
         label={t("processes.contextMenu.openLocation")}
         onClick={handleOpenFileLocation}
         disabled={!hasExePath}
       />
       <div className="my-1 border-t border-border" />
-      <MenuItem icon={<IconCopy />} label={t("processes.contextMenu.copyName")} onClick={handleCopyName} />
-      <MenuItem icon={<IconHash />} label={t("processes.contextMenu.copyPid")} onClick={handleCopyPid} />
+      <MenuItem icon={<ClipboardCopy size={14} strokeWidth={1.5} />} label={t("processes.contextMenu.copyName")} onClick={handleCopyName} />
+      <MenuItem icon={<Hash size={14} strokeWidth={1.5} />} label={t("processes.contextMenu.copyPid")} onClick={handleCopyPid} />
     </div>
   );
 }

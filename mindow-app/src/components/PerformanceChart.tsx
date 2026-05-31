@@ -36,19 +36,16 @@ interface PerformanceChartProps {
 }
 
 /**
- * Creates a richer vertical gradient fill — fuller near the curve (Task-Manager
- * style), fading toward the baseline. Higher opacity than before for a more
- * substantial "area" feel rather than a thin line.
+ * Creates a uniform solid fill — single opacity, no gradient.
+ * The data curve and the solid area beneath it are the visual focus.
  */
 function makeGradientFill(strokeColor: string) {
   return (u: uPlot, _seriesIdx: number) => {
     const plotTop = u.bbox.top / devicePixelRatio;
     const plotBottom = (u.bbox.top + u.bbox.height) / devicePixelRatio;
-    // Guard against non-finite values when container has zero dimensions
     if (!isFinite(plotTop) || !isFinite(plotBottom) || plotTop === plotBottom) {
       return strokeColor;
     }
-    const ctx = u.ctx;
 
     let resolvedColor = strokeColor;
     if (strokeColor.startsWith("var(")) {
@@ -57,11 +54,8 @@ function makeGradientFill(strokeColor: string) {
       if (computed) resolvedColor = computed;
     }
 
-    const grad = ctx.createLinearGradient(0, plotTop, 0, plotBottom);
-    grad.addColorStop(0, hexishWithAlpha(resolvedColor, 0.55)); // fuller at top
-    grad.addColorStop(0.7, hexishWithAlpha(resolvedColor, 0.18));
-    grad.addColorStop(1, hexishWithAlpha(resolvedColor, 0.04)); // subtle at baseline
-    return grad;
+    // Uniform solid fill — no gradient, just one consistent opacity
+    return hexishWithAlpha(resolvedColor, 0.38);
   };
 }
 
@@ -188,10 +182,10 @@ export function PerformanceChart({
       plugins: [tooltipPlugin(yFormat)],
       axes: [
         {
+          // X-axis: timestamp labels outside, grid nearly invisible
           stroke: "var(--text-muted)",
-          // Lighter grid — barely-there horizontal/vertical guides
-          grid: { stroke: "var(--border-color)", width: 1, dash: [] },
-          ticks: { stroke: "var(--border-color)", width: 0, size: 0 },
+          grid: { show: false },  // No vertical grid lines (Win11 has none)
+          ticks: { show: false },
           font: "10px 'Segoe UI', sans-serif",
           gap: 4,
           size: 24,
@@ -204,9 +198,10 @@ export function PerformanceChart({
             }),
         },
         {
+          // Y-axis: values outside, grid lines barely visible
           stroke: "var(--text-muted)",
-          grid: { stroke: "var(--border-color)", width: 1 },
-          ticks: { stroke: "var(--border-color)", width: 0, size: 0 },
+          grid: { stroke: "rgba(128,128,128,0.08)", width: 1 },  // Nearly invisible grid
+          ticks: { show: false },
           font: "10px 'Segoe UI', sans-serif",
           gap: 4,
           size: 44,
@@ -221,7 +216,7 @@ export function PerformanceChart({
         ...series.map((s) => ({
           label: s.label,
           stroke: s.stroke,
-          width: Math.max(s.width ?? 2, 1.5),
+          width: s.width ?? 1.5,  // Visible but not heavy
           fill: gradientFill ? makeGradientFill(s.stroke) : s.fill,
           points: { show: false },
           paths: smooth

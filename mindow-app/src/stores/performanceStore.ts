@@ -10,13 +10,15 @@ interface PerformanceState {
   diskReadHistory: number[];
   /** 磁盘写入速率历史 */
   diskWriteHistory: number[];
+  /** 电池电量历史 (0-100%) */
+  batteryHistory: number[];
   /** 时间戳序列 */
   timestamps: number[];
 
   /** 用完整历史数据更新（从 get_performance_history 命令获取） */
   setHistory: (data: PerformanceHistory) => void;
   /** 追加单个数据点（从 snapshot-updated 事件中提取） */
-  appendDataPoint: (cpu: number, memory: number, diskRead: number, diskWrite: number) => void;
+  appendDataPoint: (cpu: number, memory: number, diskRead: number, diskWrite: number, battery?: number | null) => void;
 }
 
 const MAX_DATA_POINTS = 60;
@@ -26,6 +28,7 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
   memoryHistory: [],
   diskReadHistory: [],
   diskWriteHistory: [],
+  batteryHistory: [],
   timestamps: [],
 
   setHistory: (data: PerformanceHistory) =>
@@ -37,7 +40,7 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
       timestamps: data.timestamps,
     }),
 
-  appendDataPoint: (cpu, memory, diskRead, diskWrite) =>
+  appendDataPoint: (cpu, memory, diskRead, diskWrite, battery) =>
     set((state) => {
       const append = <T>(arr: T[], val: T) => {
         const next = [...arr, val];
@@ -49,6 +52,9 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
         memoryHistory: append(state.memoryHistory, memory),
         diskReadHistory: append(state.diskReadHistory, diskRead),
         diskWriteHistory: append(state.diskWriteHistory, diskWrite),
+        batteryHistory: battery != null
+          ? append(state.batteryHistory, battery)
+          : state.batteryHistory,
         timestamps: append(state.timestamps, Date.now()),
       };
     }),

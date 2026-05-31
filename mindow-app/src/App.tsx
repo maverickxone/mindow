@@ -39,7 +39,7 @@ function App() {
         // interval to store a per-second rate.
         const diskRead = data.processes.reduce((sum, p) => sum + p.disk_read_bytes, 0) / SAMPLING_INTERVAL_SECS;
         const diskWrite = data.processes.reduce((sum, p) => sum + p.disk_write_bytes, 0) / SAMPLING_INTERVAL_SECS;
-        appendDataPoint(data.system.cpu_avg, memPercent, diskRead, diskWrite);
+        appendDataPoint(data.system.cpu_avg, memPercent, diskRead, diskWrite, data.system.battery_level);
       }
     },
     [updateSnapshot, appendDataPoint]

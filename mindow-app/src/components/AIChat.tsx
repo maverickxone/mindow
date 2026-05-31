@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTauriEvent } from "../hooks/useTauriEvent";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { showToast } from "./Toast";
+import { Sparkles, Check, Clipboard } from "./icons";
 
 /** ai-delta 事件 payload */
 interface AiDeltaPayload {
@@ -128,9 +129,7 @@ export function AIChat({ processName, pid }: AIChatProps) {
           aria-label={t("ai.analyzeLabel")}
         >
           {!isStreaming && (
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 1.5l1.6 3.9 3.9 1.6-3.9 1.6L8 12.5 6.4 8.6 2.5 7l3.9-1.6z" />
-            </svg>
+            <Sparkles size={15} strokeWidth={1.5} />
           )}
           {isStreaming ? (
             <span className="flex items-center justify-center gap-2">
@@ -141,7 +140,6 @@ export function AIChat({ processName, pid }: AIChatProps) {
             t("ai.analyze")
           )}
         </button>
-        {/* Stop button visible during streaming */}
         {isStreaming && (
           <button
             onClick={stopStreaming}
@@ -228,14 +226,9 @@ function CopyButton({ text, t }: { text: string; t: (key: string) => string }) {
         title={t("ai.copy")}
       >
         {copied ? (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3.5 8.5 6.5 11.5 12.5 5.5" />
-          </svg>
+          <Check size={12} strokeWidth={1.5} />
         ) : (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="5" y="5" width="8" height="8" rx="1" />
-            <path d="M3 11V3h8" />
-          </svg>
+          <Clipboard size={12} strokeWidth={1.5} />
         )}
         <span>{t("ai.copy")}</span>
       </button>

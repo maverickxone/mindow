@@ -102,7 +102,9 @@ pub struct ScreenRect {
 pub const OVERLAP_MARGIN: i32 = 50;
 
 /// Minimum window dimensions enforced during restore.
+#[allow(dead_code)]
 pub const MIN_WIDTH: u32 = 400;
+#[allow(dead_code)]
 pub const MIN_HEIGHT: u32 = 300;
 
 /// Pure function: check whether the window state overlaps with any of the given screens
@@ -139,6 +141,7 @@ pub fn is_within_screens(state: &WindowState, screens: &[ScreenRect]) -> bool {
 }
 
 /// Validate and clamp window dimensions to minimum values.
+#[allow(dead_code)]
 pub fn validate_size(width: u32, height: u32) -> (u32, u32) {
     (width.max(MIN_WIDTH), height.max(MIN_HEIGHT))
 }

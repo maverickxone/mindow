@@ -90,7 +90,7 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
 
         if color_bmp.is_invalid() {
             DestroyIcon(hicon).ok();
-            if !icon_info.hbmMask.is_invalid() { DeleteObject(icon_info.hbmMask).ok(); }
+            if !icon_info.hbmMask.is_invalid() { let _ = DeleteObject(icon_info.hbmMask); }
             return None;
         }
 
@@ -100,8 +100,8 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
 
         if width == 0 || height == 0 {
             DestroyIcon(hicon).ok();
-            DeleteObject(color_bmp).ok();
-            if !icon_info.hbmMask.is_invalid() { DeleteObject(icon_info.hbmMask).ok(); }
+            let _ = DeleteObject(color_bmp);
+            if !icon_info.hbmMask.is_invalid() { let _ = DeleteObject(icon_info.hbmMask); }
             return None;
         }
 
@@ -136,7 +136,7 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
         );
 
         SelectObject(hdc, old_bmp);
-        DeleteDC(hdc).ok();
+        let _ = DeleteDC(hdc);
 
         // Convert BGRA to RGBA, preserving alpha channel
         let mut rgba_pixels = Vec::with_capacity(pixel_count * 4);
@@ -155,8 +155,8 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
 
         // Cleanup
         DestroyIcon(hicon).ok();
-        DeleteObject(color_bmp).ok();
-        if !icon_info.hbmMask.is_invalid() { DeleteObject(icon_info.hbmMask).ok(); }
+        let _ = DeleteObject(color_bmp);
+        if !icon_info.hbmMask.is_invalid() { let _ = DeleteObject(icon_info.hbmMask); }
 
         Some(IconPixels { pixels: rgba_pixels, width, height })
     }

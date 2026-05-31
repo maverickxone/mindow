@@ -6,6 +6,7 @@ import { useProcessStore } from "../stores/processStore";
 import { formatBytes, formatPercent } from "../lib/format";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { showToast } from "../components/Toast";
+import { Bot, Send, Check, Clipboard } from "../components/icons";
 
 /** 对话消息类型 */
 interface ChatMessage {
@@ -192,12 +193,7 @@ export function AIPage() {
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-text-muted">
-            <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" className="mb-3 text-text-secondary">
-              <circle cx="8" cy="6" r="4" />
-              <path d="M4 12c0-2.2 1.8-4 4-4s4 1.8 4 4" strokeLinecap="round" />
-              <circle cx="6.5" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
-              <circle cx="9.5" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
-            </svg>
+            <Bot size={32} strokeWidth={1} className="mb-3 text-text-secondary" />
             <p className="text-sm">{t("ai.greeting")}</p>
             <p className="text-xs mt-1">{t("ai.greetingHint")}</p>
           </div>
@@ -246,8 +242,9 @@ export function AIPage() {
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="px-4 py-2 bg-accent-info text-primary font-medium text-sm rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 focus-ring"
+              className="px-4 py-2 bg-accent-info text-white font-medium text-sm rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 focus-ring"
             >
+              <Send size={14} strokeWidth={2} />
               <span>{t("ai.send")}</span>
             </button>
           )}
@@ -345,14 +342,9 @@ function MessageBubble({
               title={t("ai.copy")}
             >
               {copied ? (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3.5 8.5 6.5 11.5 12.5 5.5" />
-                </svg>
+                <Check size={12} strokeWidth={1.5} />
               ) : (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="5" y="5" width="8" height="8" rx="1" />
-                  <path d="M3 11V3h8" />
-                </svg>
+                <Clipboard size={12} strokeWidth={1.5} />
               )}
               <span>{t("ai.copy")}</span>
             </button>

@@ -5,6 +5,7 @@ import { PerformanceChart } from "./PerformanceChart";
 import { AIChat } from "./AIChat";
 import { useTauriEvent } from "../hooks/useTauriEvent";
 import { useProcessStore } from "../stores/processStore";
+import { X } from "./icons";
 import type { ProcessInfo, ProcessTrend, SnapshotData, AlertInfo } from "../types";
 import { formatBytes, formatPercent } from "../lib/format";
 
@@ -214,9 +215,7 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
               className="w-7 h-7 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-surface-2 transition-colors shrink-0 focus-ring"
               aria-label={t("processes.detail.close")}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M2 2L12 12M12 2L2 12" />
-              </svg>
+              <X size={14} strokeWidth={1.5} />
             </button>
           </div>
 
@@ -282,7 +281,7 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
               </div>
               <PerformanceChart
                 data={cpuChartData}
-                series={[{ label: "CPU%", stroke: "var(--color-cpu)", width: 1.5 }]}
+                series={[{ label: "CPU%", stroke: "var(--color-cpu)", width: 1 }]}
                 height={130}
                 yRange={[0, 100]}
                 yFormat={(v) => `${v.toFixed(0)}%`}
@@ -305,7 +304,7 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
               </div>
               <PerformanceChart
                 data={memoryChartData}
-                series={[{ label: t("processes.columns.memory"), stroke: "var(--color-memory)", width: 1.5 }]}
+                series={[{ label: t("processes.columns.memory"), stroke: "var(--color-memory)", width: 1 }]}
                 height={130}
                 yFormat={(v) => formatBytes(v)}
                 spanLabel={t("performance.timeSpan")}
