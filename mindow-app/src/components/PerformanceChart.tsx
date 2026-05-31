@@ -63,8 +63,10 @@ function withAlpha(color: string, alpha: number): string {
   return color;
 }
 
-/** Hover tooltip plugin */
-function tooltipPlugin(yFormat?: (v: number) => string): uPlot.Plugin {
+/** Hover tooltip plugin (reserved for future use) */
+// @ts-ignore: kept for potential re-enablement
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _tooltipPlugin(yFormat?: (v: number) => string): uPlot.Plugin {
   let tip: HTMLDivElement | null = null;
 
   return {
@@ -111,7 +113,7 @@ function tooltipPlugin(yFormat?: (v: number) => string): uPlot.Plugin {
 export function PerformanceChart({
   data, series, height = 180, yRange, yFormat,
   smooth = false, gradientFill = true, showLegend = false,
-  syncKey, spanLabel, maxLabel, compact = false,
+  syncKey, spanLabel: _spanLabel, maxLabel, compact = false,
 }: PerformanceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);

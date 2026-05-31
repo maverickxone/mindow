@@ -6,7 +6,7 @@ import { useProcessStore } from "../stores/processStore";
 import { PerformanceChart, type ChartSeries } from "../components/PerformanceChart";
 import type uPlot from "uplot";
 import type { PerformanceHistory } from "../types";
-import { formatRate, formatPercent, formatBytes } from "../lib/format";
+import { formatRate, formatPercent } from "../lib/format";
 
 type MetricId = "cpu" | "memory" | "disk" | "battery";
 
@@ -145,7 +145,7 @@ export function PerformancePage() {
    Detail Views — each matches Win11 layout exactly
    ═══════════════════════════════════════════════════════════════════ */
 
-function CpuDetail({ cpuData, currentCpu, perCoreCpu, cpuHistory, t }: { cpuData: uPlot.AlignedData; currentCpu: number; perCoreCpu: number[]; cpuHistory: number[]; t: any }) {
+function CpuDetail({ cpuData, currentCpu, perCoreCpu, cpuHistory: _cpuHistory, t }: { cpuData: uPlot.AlignedData; currentCpu: number; perCoreCpu: number[]; cpuHistory: number[]; t: any }) {
   const [view, setView] = useState<"overall" | "logical">("overall");
   const coresHistory = usePerformanceStore((s) => s.coresHistory);
   const tsSeconds = useMemo(() => {
@@ -218,7 +218,7 @@ function CpuDetail({ cpuData, currentCpu, perCoreCpu, cpuHistory, t }: { cpuData
   );
 }
 
-function MemoryDetail({ memoryData, currentMem, totalMemGB, usedMemGB, availMemGB, memoryHistory, system, t }: { memoryData: uPlot.AlignedData; currentMem: number; totalMemGB: number; usedMemGB: number; availMemGB: number; memoryHistory: number[]; system: any; t: any }) {
+function MemoryDetail({ memoryData, currentMem: _currentMem, totalMemGB, usedMemGB, availMemGB, memoryHistory: _memoryHistory, system: _system, t }: { memoryData: uPlot.AlignedData; currentMem: number; totalMemGB: number; usedMemGB: number; availMemGB: number; memoryHistory: number[]; system: any; t: any }) {
   return (
     <>
       <PageHeader title={t("performance.memory", "内存")} rightTop={`${totalMemGB.toFixed(1)} GB`} rightBottom={`${availMemGB.toFixed(1)} GB`} />
@@ -279,7 +279,7 @@ function MemoryDetail({ memoryData, currentMem, totalMemGB, usedMemGB, availMemG
 }
 
 
-function DiskDetail({ diskData, currentDiskRead, currentDiskWrite, diskReadHistory, t }: { diskData: uPlot.AlignedData; currentDiskRead: number; currentDiskWrite: number; diskReadHistory: number[]; t: any }) {
+function DiskDetail({ diskData, currentDiskRead, currentDiskWrite, diskReadHistory: _diskReadHistory, t }: { diskData: uPlot.AlignedData; currentDiskRead: number; currentDiskWrite: number; diskReadHistory: number[]; t: any }) {
   return (
     <>
       <PageHeader title={t("performance.diskIO")} rightTop={formatRate(currentDiskRead + currentDiskWrite)} rightBottom={t("performance.diskType")} />
