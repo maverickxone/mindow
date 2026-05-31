@@ -14,11 +14,13 @@ interface PerformanceState {
   batteryHistory: number[];
   /** 时间戳序列 */
   timestamps: number[];
+  /** 每个逻辑核心的 CPU 使用率历史 */
+  coresHistory: number[][];
 
   /** 用完整历史数据更新（从 get_performance_history 命令获取） */
   setHistory: (data: PerformanceHistory) => void;
   /** 追加单个数据点（从 snapshot-updated 事件中提取） */
-  appendDataPoint: (cpu: number, memory: number, diskRead: number, diskWrite: number, battery?: number | null) => void;
+  appendDataPoint: (cpu: number, memory: number, diskRead: number, diskWrite: number, battery?: number | null, perCoreCpu?: number[]) => void;
 }
 
 const MAX_DATA_POINTS = 60;
@@ -30,6 +32,7 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
   diskWriteHistory: [],
   batteryHistory: [],
   timestamps: [],
+  coresHistory: [],
 
   setHistory: (data: PerformanceHistory) =>
     set({
@@ -38,9 +41,10 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
       diskReadHistory: data.disk_read_history,
       diskWriteHistory: data.disk_write_history,
       timestamps: data.timestamps,
+      coresHistory: [],
     }),
 
-  appendDataPoint: (cpu, memory, diskRead, diskWrite, battery) =>
+  appendDataPoint: (cpu, memory, diskRead, diskWrite, battery, perCoreCpu) =>
     set((state) => {
       const append = <T>(arr: T[], val: T) => {
         const next = [...arr, val];
@@ -56,6 +60,11 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
           ? append(state.batteryHistory, battery)
           : state.batteryHistory,
         timestamps: append(state.timestamps, Date.now()),
+        coresHistory: perCoreCpu
+          ? (state.coresHistory.length > 0
+              ? perCoreCpu.map((c, i) => append(state.coresHistory[i] || [], c))
+              : perCoreCpu.map((c) => [c]))
+          : state.coresHistory,
       };
     }),
 }));

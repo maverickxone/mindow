@@ -105,7 +105,7 @@ fn main() {
 
             // --- Start sampling loop ---
             let config = mindow_core::config::Config {
-                interval_secs: 2,
+                interval_secs: 1,
                 ..mindow_core::config::Config::default()
             };
             sampling::start_sampling_loop(app_handle, state_for_setup, config);

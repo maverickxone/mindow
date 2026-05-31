@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../stores/settingsStore";
 import { LayoutList, Activity, Sparkles, Settings, PanelLeftClose, Menu } from "./icons";
@@ -31,12 +32,49 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   const { t } = useTranslation();
   const expanded = useSettingsStore((s) => s.sidebarExpanded);
   const setSidebarExpanded = useSettingsStore((s) => s.setSidebarExpanded);
+  const [sidebarWidth, setSidebarWidth] = useState(230); // 1.8x original 160px * 80%
+  const [isResizing, setIsResizing] = useState(false);
+  const resizingRef = useRef(false);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = true;
+    setIsResizing(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      let newWidth = e.clientX;
+      if (newWidth < 160) newWidth = 160;
+      if (newWidth > 600) newWidth = 600;
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (resizingRef.current) {
+        resizingRef.current = false;
+        setIsResizing(false);
+        document.body.style.cursor = "default";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   return (
     <nav
-      className={`h-full flex flex-col bg-surface-1 border-r border-border shrink-0 overflow-hidden
-        transition-[width] duration-200 ease-in-out
-        ${expanded ? "w-[160px]" : "w-[48px]"}`}
+      className={`h-full flex flex-col bg-surface-1 border-r border-border shrink-0 overflow-hidden relative
+        ${!isResizing ? "transition-[width] duration-200 ease-in-out" : ""}`}
+      style={{ width: expanded ? sidebarWidth : 48 }}
     >
       {/* Toggle button */}
       <button
@@ -74,6 +112,14 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           t={t}
         />
       </div>
+
+      {/* Drag to resize handle */}
+      {expanded && (
+        <div
+          className="absolute right-0 top-0 bottom-0 w-[4px] cursor-col-resize hover:bg-accent/30 z-50 transition-colors"
+          onMouseDown={startResizing}
+        />
+      )}
     </nav>
   );
 }

@@ -10,11 +10,11 @@
 
 :root {
   /* ── Surface Elevations (5 levels, ≥3% luminance delta) ── */
-  --surface-0: #ffffff;    /* L:100% — base background */
-  --surface-1: #f7f7f8;   /* L:97%  — cards, sidebar */
-  --surface-2: #eeeff1;   /* L:94%  — elevated panels */
-  --surface-3: #e4e5e8;   /* L:90%  — popovers, menus */
-  --surface-4: #d8d9dd;   /* L:86%  — tooltips, overlays */
+  --surface-0: #ffffff;    /* base background */
+  --surface-1: #ffffff;    /* cards, sidebar */
+  --surface-2: #f3f3f3;    /* hover states, elevated panels */
+  --surface-3: #ececec;    /* popovers, menus */
+  --surface-4: #e5e5e5;    /* tooltips, overlays */
 
   /* ── Text Colors ── */
   --text-primary: #1a1a1a;
@@ -28,12 +28,12 @@
   --accent: hsl(210, 85%, 45%);
   --accent-hover: hsl(210, 85%, 38%);
 
-  /* ── Resource Colors (visible, distinct per resource) ── */
-  --color-cpu: hsl(168, 55%, 38%);
-  --color-memory: hsl(215, 65%, 48%);
-  --color-disk: hsl(38, 75%, 45%);
-  --color-disk-write: hsl(25, 80%, 45%);
-  --color-battery: hsl(142, 60%, 38%);
+  /* ── Resource Colors (Win11 task manager palette) ── */
+  --color-cpu: #4ba0a0;
+  --color-memory: #5b9bd5;
+  --color-disk: #c4903d;
+  --color-disk-write: #b87333;
+  --color-battery: #5da55d;
 
   /* ── Heat Scale (green→yellow→red pressure gradient) ── */
   --heat-safe: hsl(142, 60%, 45%);
@@ -119,12 +119,12 @@
   --accent: hsl(210, 85%, 65%);
   --accent-hover: hsl(210, 85%, 72%);
 
-  /* ── Resource Colors (brighter for dark bg readability) ── */
-  --color-cpu: hsl(168, 55%, 52%);
-  --color-memory: hsl(215, 65%, 62%);
-  --color-disk: hsl(38, 70%, 58%);
-  --color-disk-write: hsl(25, 75%, 55%);
-  --color-battery: hsl(142, 60%, 50%);
+  /* ── Resource Colors (Win11 task manager palette, dark mode) ── */
+  --color-cpu: #5fbfbf;
+  --color-memory: #7bb8e8;
+  --color-disk: #d4a64d;
+  --color-disk-write: #cc8844;
+  --color-battery: #6fc06f;
 
   /* ── Heat Scale (same hues, adjusted for dark bg) ── */
   --heat-safe: hsl(142, 60%, 50%);

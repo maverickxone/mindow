@@ -81,7 +81,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   shortcut: "Ctrl+Shift+M",
   aiEndpoint: "",
   aiApiKey: "",
-  sidebarExpanded: false,
+  sidebarExpanded: true,
   notificationsEnabled: false,
   aiProvider: "openai",
   aiModel: "",

@@ -10,62 +10,49 @@ export interface ChartSeries {
 }
 
 interface PerformanceChartProps {
-  /** uPlot data: [timestamps, ...series] */
   data: uPlot.AlignedData;
-  /** Series config (excluding the x-axis timestamp series) */
   series: ChartSeries[];
-  /** Chart height in pixels */
   height?: number;
-  /** Y-axis range [min, max]; if omitted, auto-scales */
   yRange?: [number, number];
-  /** Format function for y-axis values */
   yFormat?: (val: number) => string;
-  /** Enable spline interpolation for smooth curves (default: true).
-   *  Set false for spiky data (disk/network) to preserve peaks. */
   smooth?: boolean;
-  /** Enable area gradient fill from curve to baseline (default: true) */
   gradientFill?: boolean;
-  /** Show legend (default: false, true for disk chart with read/write labels) */
   showLegend?: boolean;
-  /** Cursor sync group key for overview mode */
   syncKey?: string;
-  /** Time span label shown at bottom-left (e.g. "60 秒") */
   spanLabel?: string;
-  /** Max-scale label shown at top-right (e.g. "100%" or "32.0 GB") */
   maxLabel?: string;
+  compact?: boolean;
 }
 
 /**
- * Creates a uniform solid fill — single opacity, no gradient.
- * The data curve and the solid area beneath it are the visual focus.
+ * Solid uniform fill — Win11 style: one flat opacity beneath the curve.
+ * No gradient. The fill color matches the stroke but at ~35% opacity.
  */
-function makeGradientFill(strokeColor: string) {
+function makeSolidFill(strokeColor: string) {
   return (u: uPlot, _seriesIdx: number) => {
+    // Guard
     const plotTop = u.bbox.top / devicePixelRatio;
     const plotBottom = (u.bbox.top + u.bbox.height) / devicePixelRatio;
     if (!isFinite(plotTop) || !isFinite(plotBottom) || plotTop === plotBottom) {
       return strokeColor;
     }
 
-    let resolvedColor = strokeColor;
+    let resolved = strokeColor;
     if (strokeColor.startsWith("var(")) {
       const varName = strokeColor.slice(4, -1).trim();
       const computed = getComputedStyle(u.root).getPropertyValue(varName).trim();
-      if (computed) resolvedColor = computed;
+      if (computed) resolved = computed;
     }
 
-    // Uniform solid fill — no gradient, just one consistent opacity
-    return hexishWithAlpha(resolvedColor, 0.38);
+    return withAlpha(resolved, 0.10);
   };
 }
 
-/** Append an alpha to a color string (supports hsl()/hex). */
-function hexishWithAlpha(color: string, alpha: number): string {
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
-  if (color.startsWith("#")) {
-    // #rrggbb → #rrggbbaa
-    if (color.length === 7) return color + a;
-    return color;
+/** Append alpha to a CSS color string. */
+function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith("#") && color.length === 7) {
+    const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+    return color + a;
   }
   if (color.startsWith("hsl(")) {
     return color.replace("hsl(", "hsla(").replace(")", `, ${alpha})`);
@@ -76,219 +63,150 @@ function hexishWithAlpha(color: string, alpha: number): string {
   return color;
 }
 
-/**
- * Tooltip plugin: shows a vertical guide line and a small box with the value(s)
- * and time at the hovered data point.
- */
+/** Hover tooltip plugin */
 function tooltipPlugin(yFormat?: (v: number) => string): uPlot.Plugin {
-  let tooltip: HTMLDivElement | null = null;
-
-  function fmtTime(ts: number): string {
-    const d = new Date(ts * 1000);
-    const h = d.getHours().toString().padStart(2, "0");
-    const m = d.getMinutes().toString().padStart(2, "0");
-    const s = d.getSeconds().toString().padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  }
+  let tip: HTMLDivElement | null = null;
 
   return {
     hooks: {
       init: (u) => {
-        tooltip = document.createElement("div");
-        tooltip.className = "uplot-tooltip";
-        tooltip.style.cssText = `
-          position: absolute; z-index: 100; pointer-events: none;
-          background: var(--surface-4); color: var(--text-primary);
-          border: 1px solid var(--border-color); border-radius: 6px;
-          padding: 4px 8px; font-size: 11px; line-height: 1.4;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.18); white-space: nowrap;
-          display: none; transition: none;
+        tip = document.createElement("div");
+        tip.style.cssText = `
+          position:absolute;z-index:100;pointer-events:none;
+          background:var(--surface-4);color:var(--text-primary);
+          border:1px solid var(--border-color);border-radius:4px;
+          padding:3px 7px;font-size:11px;line-height:1.4;
+          box-shadow:0 2px 6px rgba(0,0,0,0.12);white-space:nowrap;display:none;
         `;
-        u.over.appendChild(tooltip);
+        u.over.appendChild(tip);
       },
       setCursor: (u) => {
-        if (!tooltip) return;
+        if (!tip) return;
         const { idx, left, top } = u.cursor;
-        if (idx == null || left == null || left < 0) {
-          tooltip.style.display = "none";
-          return;
-        }
+        if (idx == null || left == null || left < 0) { tip.style.display = "none"; return; }
         const ts = u.data[0][idx];
-        if (ts == null) {
-          tooltip.style.display = "none";
-          return;
-        }
-        let html = `<div style="color: var(--text-muted); margin-bottom: 2px;">${fmtTime(ts as number)}</div>`;
+        if (ts == null) { tip.style.display = "none"; return; }
+        const d = new Date((ts as number) * 1000);
+        const time = `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}:${d.getSeconds().toString().padStart(2,"0")}`;
+        let html = `<div style="color:var(--text-muted);margin-bottom:2px">${time}</div>`;
         for (let si = 1; si < u.series.length; si++) {
           const s = u.series[si];
           const val = u.data[si][idx];
           if (val == null) continue;
-          const color = typeof s.stroke === "function" ? "currentColor" : (s.stroke as string);
-          const formatted = yFormat ? yFormat(val as number) : String(val);
-          html += `<div style="display:flex;align-items:center;gap:6px;">
-            <span style="width:8px;height:8px;border-radius:2px;background:${color};display:inline-block;"></span>
-            <span>${s.label}: <b>${formatted}</b></span>
-          </div>`;
+          const c = typeof s.stroke === "function" ? "#666" : (s.stroke as string);
+          const f = yFormat ? yFormat(val as number) : String(val);
+          html += `<div style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:2px;background:${c};display:inline-block"></span>${s.label}: <b>${f}</b></div>`;
         }
-        tooltip.innerHTML = html;
-        tooltip.style.display = "block";
-        // Position tooltip near cursor, clamped within plot
-        const tw = tooltip.offsetWidth;
-        const px = left + 12 + tw > u.over.clientWidth ? left - tw - 12 : left + 12;
-        tooltip.style.left = `${px}px`;
-        tooltip.style.top = `${Math.max(0, (top ?? 0) - 8)}px`;
+        tip.innerHTML = html;
+        tip.style.display = "block";
+        const tw = tip.offsetWidth;
+        tip.style.left = `${left + 12 + tw > u.over.clientWidth ? left - tw - 12 : left + 12}px`;
+        tip.style.top = `${Math.max(0, (top ?? 0) - 8)}px`;
       },
-      destroy: () => {
-        tooltip?.remove();
-        tooltip = null;
-      },
+      destroy: () => { tip?.remove(); tip = null; },
     },
   };
 }
 
-/**
- * uPlot 图表封装组件。
- * Task-Manager-style: fuller area fill, light grid, hover tooltip,
- * peak-preserving for spiky data, max-scale + time-span labels.
- */
 export function PerformanceChart({
-  data,
-  series,
-  height = 180,
-  yRange,
-  yFormat,
-  smooth = true,
-  gradientFill = true,
-  showLegend = false,
-  syncKey,
-  spanLabel,
-  maxLabel,
+  data, series, height = 180, yRange, yFormat,
+  smooth = false, gradientFill = true, showLegend = false,
+  syncKey, spanLabel, maxLabel, compact = false,
 }: PerformanceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
 
-  const buildOpts = useCallback(
-    (width: number): uPlot.Options => ({
-      width,
-      height,
-      cursor: {
-        show: true,
-        points: { show: true, size: 6 },
-        drag: { x: false, y: false },
-        sync: syncKey ? { key: syncKey, setSeries: false } : undefined,
+  const buildOpts = useCallback((width: number): uPlot.Options => ({
+    width,
+    height,
+    scales: {
+      x: { time: true },
+      y: yRange
+        ? { range: () => yRange as uPlot.Range.MinMax }
+        : {},
+    },
+    cursor: {
+      show: false,
+    },
+    legend: { show: showLegend },
+    axes: [
+      {
+        // X-axis
+        stroke: "var(--text-muted)",
+        grid: { show: true, stroke: "rgba(128,128,128,0.18)", width: 1 },
+        ticks: { show: false },
+        size: compact ? 0 : 0,
+        show: !compact,
+        values: () => [], // Empty values to hide text
       },
-      legend: { show: showLegend },
-      plugins: [tooltipPlugin(yFormat)],
-      axes: [
-        {
-          // X-axis: timestamp labels outside, grid nearly invisible
-          stroke: "var(--text-muted)",
-          grid: { show: false },  // No vertical grid lines (Win11 has none)
-          ticks: { show: false },
-          font: "10px 'Segoe UI', sans-serif",
-          gap: 4,
-          size: 24,
-          values: (_u: uPlot, vals: number[]) =>
-            vals.map((v) => {
-              const d = new Date(v * 1000);
-              const m = d.getMinutes().toString().padStart(2, "0");
-              const s = d.getSeconds().toString().padStart(2, "0");
-              return `${m}:${s}`;
-            }),
-        },
-        {
-          // Y-axis: values outside, grid lines barely visible
-          stroke: "var(--text-muted)",
-          grid: { stroke: "rgba(128,128,128,0.08)", width: 1 },  // Nearly invisible grid
-          ticks: { show: false },
-          font: "10px 'Segoe UI', sans-serif",
-          gap: 4,
-          size: 44,
-          values: yFormat
-            ? (_u: uPlot, vals: number[]) => vals.map(yFormat)
-            : undefined,
-          ...(yRange ? { range: () => yRange as uPlot.Range.MinMax } : {}),
-        },
-      ],
-      series: [
-        { label: "Time" },
-        ...series.map((s) => ({
-          label: s.label,
-          stroke: s.stroke,
-          width: s.width ?? 1.5,  // Visible but not heavy
-          fill: gradientFill ? makeGradientFill(s.stroke) : s.fill,
-          points: { show: false },
-          paths: smooth
-            ? (u: uPlot, seriesIdx: number, idx0: number, idx1: number) =>
-                uPlot.paths.spline!()(u, seriesIdx, idx0, idx1)
-            : undefined,
-        })),
-      ],
-    }),
-    [height, series, yRange, yFormat, smooth, gradientFill, showLegend, syncKey]
-  );
+      {
+        // Y-axis
+        stroke: "var(--text-muted)",
+        grid: { show: true, stroke: "rgba(128,128,128,0.18)", width: 1 },
+        ticks: { show: false },
+        size: compact ? 0 : 0,
+        show: !compact,
+        values: () => [], // Empty values to hide text
+      },
+    ],
+    series: [
+      { label: "Time" },
+      ...series.map((s) => ({
+        label: s.label,
+        stroke: s.stroke,
+        width: s.width ?? 1,
+        fill: gradientFill ? makeSolidFill(s.stroke) : s.fill,
+        points: { show: false },
+        paths: smooth
+          ? (u: uPlot, si: number, i0: number, i1: number) => uPlot.paths.spline!()(u, si, i0, i1)
+          : undefined,
+      })),
+    ],
+  }), [height, series, yRange, yFormat, smooth, gradientFill, showLegend, syncKey]);
 
-  // Initialize or rebuild chart
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const w = el.clientWidth;
+    if (w === 0) return;
 
-    const width = container.clientWidth;
-    if (width === 0) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    chartRef.current = new uPlot(buildOpts(w), data, el);
 
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
-    }
-
-    const opts = buildOpts(width);
-    const chart = new uPlot(opts, data, container);
-    chartRef.current = chart;
-
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-    }
+    if (roRef.current) roRef.current.disconnect();
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newWidth = entry.contentRect.width;
-        if (newWidth > 0 && chartRef.current) {
-          chartRef.current.setSize({ width: newWidth, height });
-        }
+      for (const e of entries) {
+        const nw = e.contentRect.width;
+        if (nw > 0 && chartRef.current) chartRef.current.setSize({ width: nw, height });
       }
     });
-    ro.observe(container);
-    resizeObserverRef.current = ro;
+    ro.observe(el);
+    roRef.current = ro;
 
-    return () => {
-      ro.disconnect();
-      chart.destroy();
-      chartRef.current = null;
-    };
+    return () => { ro.disconnect(); chartRef.current?.destroy(); chartRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildOpts]);
 
-  // Update data without recreating the chart
   useEffect(() => {
-    if (chartRef.current && data[0].length > 0) {
-      chartRef.current.setData(data);
-    }
+    if (chartRef.current && data[0].length > 0) chartRef.current.setData(data);
   }, [data]);
 
   return (
     <div className="relative w-full" style={{ minHeight: height }}>
-      <div ref={containerRef} className="w-full" style={{ minHeight: height }} />
-      {/* Max-scale label (top-right) */}
-      {maxLabel && (
-        <span className="absolute top-0 right-1 text-[10px] text-text-muted pointer-events-none tabular-nums">
+      <div className={`chart-frame ${compact ? 'border-none p-0' : ''}`}>
+        <div ref={containerRef} className="w-full" style={{ minHeight: height }} />
+      </div>
+      {maxLabel && !compact && (
+        <span className="absolute top-1 right-2 text-[10px] text-text-muted pointer-events-none tabular-nums">
           {maxLabel}
         </span>
       )}
-      {/* Time-span label (bottom-left) */}
-      {spanLabel && (
-        <span className="absolute bottom-5 left-12 text-[10px] text-text-muted pointer-events-none">
-          {spanLabel}
-        </span>
+      {!compact && (
+        <div className="flex justify-between px-2 pt-1">
+          <span className="text-[10px] text-text-muted">60 秒</span>
+          <span className="text-[10px] text-text-muted">0</span>
+        </div>
       )}
     </div>
   );
