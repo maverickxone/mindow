@@ -2568,7 +2568,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mindow-ai"
-version = "1.2.1"
+version = "1.2.3"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "mindow-app"
-version = "0.1.0"
+version = "1.2.3"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -2607,7 +2607,7 @@ dependencies = [
 
 [[package]]
 name = "mindow-cli"
-version = "1.2.1"
+version = "1.2.3"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -2638,7 +2638,7 @@ dependencies = [
 
 [[package]]
 name = "mindow-core"
-version = "1.2.1"
+version = "1.2.3"
 dependencies = [
  "battery",
  "proptest",

@@ -1,7 +1,7 @@
 # Mindow — AI 项目知识文档
 
-> **最近一次更新时间**: 2026-05-31 19:52
-> **当前版本**: v1.2.0 (commit `1b9b2f6`, branch `main`, 工作区 clean — note4ai.md 为新增未提交)
+> **最近一次更新时间**: 2026-05-31 21:30
+> **当前版本**: v1.2.3 (branch `main`, 待 push tag)
 > **本文档目的**: 给接手此项目的 AI 阅读，看完即可理解 ~80% 架构后只需读少量代码即可动手
 > **维护约定**: 每次 commit 后更新顶部时间戳 + 版本号，并把本次变更同步到对应章节
 
@@ -83,7 +83,7 @@ mindows/                          ← workspace root
 └── target/                       ← Cargo 构建输出 (workspace 共享)
 ```
 
-> **版本号要点**: core/ai/cli 都是 0.9.5；**mindow-app/src-tauri 是独立的 0.1.0**（tauri.conf.json 也是 0.1.0）。git tag (v1.2.0 等) 是整个仓库的发布版本，与 crate 内部版本号不一致。
+> **版本号要点**: v1.2.3 起所有 crate（core/ai/cli/mindow-app）版本号统一为 1.2.3，与 git tag 一致。tauri.conf.json 和 package.json 同步。
 
 ---
 
@@ -159,6 +159,21 @@ AI 流 (按钮触发)
   invoke("ai_chat"/"ai_analyze_process", {requestId, ...})
   └─ 后端 ai_bridge 流式 → emit("ai-delta", {request_id, delta}) 多次 → emit("ai-done", {request_id, success, error})
        └─ 前端用 requestIdRef 过滤陈旧流; 停止=置空 requestId 使后续 delta 被忽略
+
+AI 多轮对话 (v1.2.3+)
+  ai_chat 接口增加 history: Option<Vec<ChatMessage>> 参数
+  └─ 前端 AIPage 维护 messages 数组, 每次发送时传递最近 6 条历史
+  └─ 后端将历史拼接为 user_prompt 的一部分（"以下是之前的对话记录..."）
+
+SidePanel 自动分析 (v1.2.3+)
+  AIChat 组件内置 useEffect 监听 pid 变化
+  └─ pid 变化时自动调用 startAnalysis()（无需用户点按钮）
+
+SQLite 历史持久化 (v1.2.3+)
+  sampling_cycle 每 2 秒写入 ~/.mindow/history.db
+  └─ system_metrics 表: timestamp/cpu_avg/mem_used/mem_total/disk_read/disk_write/battery
+  └─ alerts 表: timestamp/alert_type/severity/message/process_name
+  └─ 每 500 周期(~17 分钟)自动清理 >7 天数据
 ```
 
 ### 4.3 设计令牌系统 (globals.css)
@@ -214,6 +229,7 @@ system_ops.rs        ← kill_process(OpenProcess+TerminateProcess, ACCESS_DENIE
 global_shortcut.rs   ← DEFAULT_SHORTCUT="ctrl+shift+m" 切换窗口显隐; 注册失败仅警告
 notifications.rs     ← check_and_send_alerts: 启动30s静默 + 开关检查 + 冷却去重(Critical 5min/Warning 15min) + 每周期最多2条; cooldown_key="类型:进程名"
 window_state.rs      ← 窗口位置/大小持久化【到 Tauri AppConfigDir(不是~/.mindow!)】; is_within_screens 多屏边界检测, 越界则居中
+history_db.rs        ← SQLite(rusqlite bundled)持久化: system_metrics+alerts表, WAL模式, 7天自动清理, 每采样周期写入
 ```
 
 ### 5.1 IPC 命令清单 (15)
@@ -346,6 +362,7 @@ Rust SnapshotData ←→  TS SnapshotData
 | AI 报告 | `~/.mindow/reports/` | CLI report |
 | REPL 历史 | `~/.mindow/history.txt` | CLI interactive |
 | **窗口状态** | **Tauri AppConfigDir/window_state.json** (非 ~/.mindow!) | GUI window_state.rs |
+| **历史数据库** | `~/.mindow/history.db` (SQLite WAL) | GUI history_db.rs (采样循环写入, 7天自清理) |
 
 > **关键陷阱**: GUI 设置(gui_settings.json)和 AI 配置(config.toml)是**两个独立文件**。早期 bug 是 GUI 填的 key 写进 gui_settings 但 AI 后端读 config.toml → 不生效。v1.1.5 起 GUI 用 `save_ai_config` 专门写 config.toml 解决。
 
@@ -386,27 +403,21 @@ PowerShell 注意: 不支持 `&&` 连接命令，用 `;` 或分两次执行。
 | v1.1.5 | UI/UX 大修 (problem.md 70+ 问题, 设计令牌, 图表优化, AI配置打通, Markdown渲染) |
 | v1.1.6 | 前端优化 |
 | **v1.2.0** | **图表完全重写(Win11风格, scales.y.range修复Y轴, 纯色填充, 电池历史图表, 资源色改hex, Lucide图标统一, 侧栏pill+设置下沉)** |
+| **v1.2.3** | **15 bug修复 + AI多轮对话 + SidePanel自动分析 + SQLite历史持久化 + 版本号统一 + CSP安全 + formatDiskRate修复 + useProcessIcon Promise化 + settingsStore重构** |
 
 ---
 
 ## 十二、当前已知问题 / 待改进 (按优先级)
 
-🔴 **较重要**
-1. **SidePanel 无焦点陷阱/role=dialog** — 键盘 Tab 穿透到背景, 无障碍缺失
-2. **TitleBar 关闭 Toast 竞态** — showToast 后立即 hide(), 提示可能来不及显示
-3. **useProcessIcon 轮询** — 多实例等待用 setInterval(100ms), 进程多时浪费, 应改 Promise
-
 🟠 **中等**
-4. **settingsStore 重复代码** — 每 setter 手动重建 AppSettings (~100行), 加字段易漏
-5. **index.html anti-FOUC 硬编码深色背景** `#1a1a1e` — 浅色主题用户首开闪深色
-6. **Toast warning 白字在黄底** — WCAG AA 对比度不足
-7. **磁盘图无 yRange** — auto-scale 正确但数值可能跳动(设计取舍, 速率无固定上限)
+1. **API Key 明文存储** — config.toml 明文，未来需引入 Windows Credential Manager
+2. **磁盘图无 yRange** — auto-scale 正确但数值可能跳动(设计取舍, 速率无固定上限)
 
 🟡 **次要**
-8. **tauri.conf.json CSP 为 null** — 生产安全隐患
-9. **ProcessTable recentlyExpandedRef setTimeout** — 卸载时不清理(轻微泄漏风险)
-10. **PerformancePage syncKey 已移除** — overview 模式不再存在(v1.2.0 改为单指标视图)
-11. **api_key 明文存储** — config.toml / gui_settings.json 明文
+3. **PerformancePage 部分系统信息缺失** — CPU 型号/速度/缓存、内存插槽等显示为 "—"（需引入 WMI 查询）
+4. **AI Chat 对话不持久化** — 关闭窗口对话消失（需 SQLite 存储）
+
+> **v1.2.3 已修复**: SidePanel 焦点陷阱、useProcessIcon 轮询、settingsStore 重复代码、index.html FOUC、CSP null、Toast WCAG、TitleBar 竞态、formatDiskRate 测试、性能页假数据、AI prompt 过长/硬编码中文、磁盘 I/O 统计不全、battery history 缺失、版本号不一致
 
 ---
 

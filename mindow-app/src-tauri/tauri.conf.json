@@ -1,6 +1,6 @@
 {
   "productName": "Mindow",
-  "version": "0.1.0",
+  "version": "1.2.3",
   "identifier": "com.mindow.app",
   "build": {
     "frontendDist": "../dist",

@@ -2,49 +2,41 @@
 
 > Mind + Window — Windows 系统资源监控 + AI 分析工具
 
-单个 exe，零依赖运行。实时查看进程资源占用，AI 帮你分析哪些进程异常、该不该关。
+实时查看进程资源占用，AI 帮你分析哪些进程异常、该不该关。提供 GUI 桌面应用和 CLI 命令行两种使用方式。
+
+## 下载安装
+
+### GUI 桌面应用（推荐）
+
+从 [Releases](../../releases) 页面下载最新的 `Mindow_x.x.x_x64-setup.exe`，双击安装即可使用。
+
+- 支持 Windows 10/11 64 位
+- 安装后从开始菜单或桌面快捷方式启动
+- 首次安装可能弹出 Windows SmartScreen 提示，点击"仍要运行"即可（开源软件未购买代码签名证书）
+
+> 💡 AI 功能需要配置 API 密钥：打开应用 → 设置页 → AI 配置区域填写 provider、model、base_url、api_key → 点击保存
+
+### CLI 命令行工具
+
+从 [Releases](../../releases) 页面下载 `mindow.exe`，放到任意目录即可运行。
+
+> 可选：加入系统 PATH 环境变量后，在任意位置打开终端都能直接输入 `mindow`。
 
 ## 架构与技术栈
 
 ```
 mindow
 ├── core/              纯 Rust 库：数据采集、过滤、规则引擎
-│   ├── collector      系统数据采集（sysinfo + battery crate）
-│   ├── filter         Top-N 选择、路径分类（System/User/Unknown）
-│   ├── rule_engine    异常检测（内存泄漏、高 CPU、内存压力、低电量）
-│   └── trend_store    进程历史数据环形缓冲区
-│
-├── mindow-cli/        CLI 二进制 + AI 集成
-│   ├── ai/            AI 客户端（OpenAI / Claude）、联网搜索、知识缓存
-│   ├── interactive    交互式 REPL 模式
-│   └── renderer       终端彩色输出渲染
-│
+├── ai/               AI 集成：LLM 客户端、知识库、基线学习
+├── mindow-cli/       CLI 命令行工具
+├── mindow-app/       GUI 桌面应用（Tauri 2 + React）
 └── .github/workflows/ CI：push tag 自动构建 Release
 ```
 
-- **语言**: Rust
-- **数据采集**: sysinfo（进程/内存/CPU）、battery（电池状态）
-- **AI 接入**: 支持 OpenAI 兼容 API（DeepSeek、GPT 等）和 Claude API
-- **联网搜索**: DuckDuckGo Lite（免费，无需 API key，为 AI 提供进程上下文）
-- **终端渲染**: colored（ANSI 彩色输出）
-- **构建产物**: 单个 `mindow.exe`，约 8-12 MB，无运行时依赖
-
-## 安装
-
-### 方式一：下载 exe（推荐）
-
-从 [Releases](../../releases) 页面下载最新的 `mindow.exe`，放到任意目录即可运行。
-
-> 可选：加入系统 PATH 环境变量后，在任意位置打开终端都能直接输入 `mindow`。
-
-### 方式二：从源码编译
-
-```bash
-# 需要 Rust 工具链（https://rustup.rs）
-git clone https://github.com/maverickxone/mindow.git
-cd mindow
-cargo install --path mindow-cli
-```
+- **GUI**: Tauri 2 + React 18 + TypeScript + Tailwind CSS + uPlot
+- **后端**: Rust + sysinfo + Win32 API
+- **AI**: 支持 OpenAI 兼容 API 和 Claude API，流式输出
+- **平台**: 仅 Windows 10/11
 
 ## 配置 AI（首次使用必读）
 
