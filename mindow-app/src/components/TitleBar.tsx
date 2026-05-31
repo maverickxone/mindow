@@ -81,6 +81,8 @@ export function TitleBar({ searchQuery, onSearch }: TitleBarProps) {
     if (!hasShownTrayNotice.current) {
       showToast("info", t("common.minimizedToTray"));
       hasShownTrayNotice.current = true;
+      // Allow toast to render before hiding window
+      await new Promise((r) => setTimeout(r, 100));
     }
     await appWindow.hide();
   };

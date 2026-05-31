@@ -3,8 +3,38 @@ import { invoke } from "@tauri-apps/api/core";
 
 /** Global icon cache — shared across all component instances */
 const iconCache = new Map<string, string>();
-/** Set of paths currently being fetched (prevent duplicate requests) */
-const pendingRequests = new Set<string>();
+/** Pending promises for in-flight requests — avoids duplicate fetches and polling */
+const pendingPromises = new Map<string, Promise<string>>();
+
+/**
+ * Fetch or retrieve a cached icon. Returns a Promise that resolves to the
+ * base64 data URL (or "" if no icon available). Multiple callers for the
+ * same exePath share a single in-flight request via the pendingPromises map.
+ */
+function getIconAsync(exePath: string): Promise<string> {
+  const cached = iconCache.get(exePath);
+  if (cached !== undefined) return Promise.resolve(cached);
+
+  const pending = pendingPromises.get(exePath);
+  if (pending) return pending;
+
+  const promise = invoke<string | null>("get_process_icon", { exePath })
+    .then((result) => {
+      const value = result ?? "";
+      iconCache.set(exePath, value);
+      return value;
+    })
+    .catch(() => {
+      iconCache.set(exePath, "");
+      return "";
+    })
+    .finally(() => {
+      pendingPromises.delete(exePath);
+    });
+
+  pendingPromises.set(exePath, promise);
+  return promise;
+}
 
 /**
  * Hook to get a process icon by exe_path.
@@ -22,46 +52,19 @@ export function useProcessIcon(exePath: string | null): string | null {
       return;
     }
 
-    // Check cache
+    // Check synchronous cache first
     const cached = iconCache.get(exePath);
-    if (cached) {
-      setIcon(cached);
+    if (cached !== undefined) {
+      setIcon(cached || null);
       return;
     }
 
-    // If already fetching this path, wait for it
-    if (pendingRequests.has(exePath)) {
-      // Poll for cache completion
-      const interval = setInterval(() => {
-        const result = iconCache.get(exePath);
-        if (result) {
-          setIcon(result);
-          clearInterval(interval);
-        }
-      }, 100);
-      return () => clearInterval(interval);
-    }
-
-    // Fetch icon
-    pendingRequests.add(exePath);
-    invoke<string | null>("get_process_icon", { exePath })
-      .then((result) => {
-        if (result) {
-          iconCache.set(exePath, result);
-          setIcon(result);
-        } else {
-          // Mark as "no icon" so we don't retry
-          iconCache.set(exePath, "");
-          setIcon("");
-        }
-      })
-      .catch(() => {
-        iconCache.set(exePath, "");
-        setIcon("");
-      })
-      .finally(() => {
-        pendingRequests.delete(exePath);
-      });
+    // Fetch asynchronously (shares promise with other callers for same path)
+    let cancelled = false;
+    getIconAsync(exePath).then((result) => {
+      if (!cancelled) setIcon(result || null);
+    });
+    return () => { cancelled = true; };
   }, [exePath]);
 
   return icon || null;

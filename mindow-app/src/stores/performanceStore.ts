@@ -40,6 +40,7 @@ export const usePerformanceStore = create<PerformanceState>((set) => ({
       memoryHistory: data.memory_history,
       diskReadHistory: data.disk_read_history,
       diskWriteHistory: data.disk_write_history,
+      batteryHistory: data.battery_history ?? [],
       timestamps: data.timestamps,
       coresHistory: [],
     }),

@@ -103,6 +103,16 @@ export function AIChat({ processName, pid }: AIChatProps) {
     }
   }, [processName, pid]);
 
+  // Auto-trigger analysis when process changes (panel opens with a new target)
+  const prevPidRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (pid && pid !== prevPidRef.current) {
+      prevPidRef.current = pid;
+      // Auto-analyze when a new process is selected
+      startAnalysis();
+    }
+  }, [pid, startAnalysis]);
+
   // Stop streaming — cancels the current response
   const stopStreaming = useCallback(() => {
     streamingRef.current = false;

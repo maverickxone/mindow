@@ -169,6 +169,23 @@ fn sampling_cycle(
     // 5.5 Check alerts and send system notifications (with 5-min cooldown dedup)
     crate::notifications::check_and_send_alerts(&alert_infos, state, app_handle);
 
+    // 5.6 Record metrics and alerts to SQLite history database
+    if let Some(db) = &state.history_db {
+        let total_read: u64 = processes.iter().map(|p| p.disk_read_bytes).sum();
+        let total_write: u64 = processes.iter().map(|p| p.disk_write_bytes).sum();
+        db.record_metrics(&system_info, total_read, total_write);
+        for alert in &alert_infos {
+            let alert_type_str = format!("{:?}", alert.alert_type);
+            let severity_str = format!("{:?}", alert.severity);
+            db.record_alert(
+                &alert_type_str,
+                &severity_str,
+                &alert.message,
+                alert.process_name.as_deref(),
+            );
+        }
+    }
+
     // Build the snapshot
     let snapshot = SnapshotData {
         processes: process_infos,
@@ -203,9 +220,9 @@ fn sampling_cycle(
         }
         history.memory_history.push_back(mem_percent);
 
-        // Disk I/O (sum of all filtered processes as approximation)
-        let total_read: u64 = filtered.processes.iter().map(|p| p.sample.disk_read_bytes).sum();
-        let total_write: u64 = filtered.processes.iter().map(|p| p.sample.disk_write_bytes).sum();
+        // Disk I/O (sum of ALL collected processes for more accurate system-level view)
+        let total_read: u64 = processes.iter().map(|p| p.disk_read_bytes).sum();
+        let total_write: u64 = processes.iter().map(|p| p.disk_write_bytes).sum();
         if history.disk_read_history.len() >= MAX_HISTORY_POINTS {
             history.disk_read_history.pop_front();
         }
@@ -214,6 +231,14 @@ fn sampling_cycle(
             history.disk_write_history.pop_front();
         }
         history.disk_write_history.push_back(total_write);
+
+        // Battery level history
+        if let BatteryStatus::Available { level, .. } = &system_sample.battery {
+            if history.battery_history.len() >= MAX_HISTORY_POINTS {
+                history.battery_history.pop_front();
+            }
+            history.battery_history.push_back(*level);
+        }
 
         // Per-core CPU (latest values)
         history.per_core_cpu = system_sample.per_core_cpu.clone();

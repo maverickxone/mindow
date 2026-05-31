@@ -74,6 +74,18 @@ function applyTheme(theme: ThemeMode) {
   }
 }
 
+/** Build the full AppSettings from current store state and persist in background */
+function persistSettings(state: AppSettings) {
+  invoke("save_settings", { settings: state }).catch(() => {});
+}
+
+/** Helper to build AppSettings from current store getter */
+function buildSettings(get: () => SettingsState): AppSettings {
+  const { theme, language, autostart, shortcut, aiEndpoint, sidebarExpanded, notificationsEnabled } = get();
+  // Never persist aiApiKey to gui_settings.json — it belongs in config.toml only
+  return { theme, language, autostart, shortcut, aiEndpoint, aiApiKey: "", sidebarExpanded, notificationsEnabled };
+}
+
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   theme: "light",
   language: "zh",
@@ -128,56 +140,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     setTimeout(() => {
       document.documentElement.removeAttribute("data-theme-transition");
     }, 250);
-    // Persist in background
-    const state = get();
-    const settings: AppSettings = {
-      theme,
-      language: state.language,
-      autostart: state.autostart,
-      shortcut: state.shortcut,
-      aiEndpoint: state.aiEndpoint,
-      aiApiKey: state.aiApiKey,
-      sidebarExpanded: state.sidebarExpanded,
-      notificationsEnabled: state.notificationsEnabled,
-    };
-    invoke("save_settings", { settings }).catch(() => {});
+    persistSettings(buildSettings(get));
   },
 
   setLanguage: (lang: Language) => {
     i18n.changeLanguage(lang);
     set({ language: lang });
-    // Persist in background
-    const state = get();
-    const settings: AppSettings = {
-      theme: state.theme,
-      language: lang,
-      autostart: state.autostart,
-      shortcut: state.shortcut,
-      aiEndpoint: state.aiEndpoint,
-      aiApiKey: state.aiApiKey,
-      sidebarExpanded: state.sidebarExpanded,
-      notificationsEnabled: state.notificationsEnabled,
-    };
-    invoke("save_settings", { settings }).catch(() => {});
+    persistSettings(buildSettings(get));
   },
 
   setAutostart: async (enabled: boolean) => {
     try {
       await invoke("toggle_autostart", { enable: enabled });
       set({ autostart: enabled });
-      // Persist in background
-      const state = get();
-      const settings: AppSettings = {
-        theme: state.theme,
-        language: state.language,
-        autostart: enabled,
-        shortcut: state.shortcut,
-        aiEndpoint: state.aiEndpoint,
-        aiApiKey: state.aiApiKey,
-        sidebarExpanded: state.sidebarExpanded,
-        notificationsEnabled: state.notificationsEnabled,
-      };
-      invoke("save_settings", { settings }).catch(() => {});
+      persistSettings(buildSettings(get));
     } catch (e) {
       console.error("Failed to toggle autostart:", e);
     }
@@ -185,19 +161,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setShortcut: (shortcut: string) => {
     set({ shortcut });
-    // Persist in background
-    const state = get();
-    const settings: AppSettings = {
-      theme: state.theme,
-      language: state.language,
-      autostart: state.autostart,
-      shortcut,
-      aiEndpoint: state.aiEndpoint,
-      aiApiKey: state.aiApiKey,
-      sidebarExpanded: state.sidebarExpanded,
-      notificationsEnabled: state.notificationsEnabled,
-    };
-    invoke("save_settings", { settings }).catch(() => {});
+    persistSettings(buildSettings(get));
   },
 
   setAiEndpoint: (endpoint: string) => {
@@ -210,36 +174,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setSidebarExpanded: (expanded: boolean) => {
     set({ sidebarExpanded: expanded });
-    // Persist in background
-    const state = get();
-    const settings: AppSettings = {
-      theme: state.theme,
-      language: state.language,
-      autostart: state.autostart,
-      shortcut: state.shortcut,
-      aiEndpoint: state.aiEndpoint,
-      aiApiKey: state.aiApiKey,
-      sidebarExpanded: expanded,
-      notificationsEnabled: state.notificationsEnabled,
-    };
-    invoke("save_settings", { settings }).catch(() => {});
+    persistSettings(buildSettings(get));
   },
 
   setNotificationsEnabled: (enabled: boolean) => {
     set({ notificationsEnabled: enabled });
-    // Persist immediately (Requirement 16.2)
-    const state = get();
-    const settings: AppSettings = {
-      theme: state.theme,
-      language: state.language,
-      autostart: state.autostart,
-      shortcut: state.shortcut,
-      aiEndpoint: state.aiEndpoint,
-      aiApiKey: state.aiApiKey,
-      sidebarExpanded: state.sidebarExpanded,
-      notificationsEnabled: enabled,
-    };
-    invoke("save_settings", { settings }).catch(() => {});
+    persistSettings(buildSettings(get));
   },
 
   setAiProvider: (provider: string) => {

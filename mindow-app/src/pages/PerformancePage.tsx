@@ -238,15 +238,15 @@ function MemoryDetail({ memoryData, currentMem, totalMemGB, usedMemGB, availMemG
         <div className="flex flex-col gap-5 min-w-[140px]">
           <div>
             <div className="text-[12px] text-text-secondary leading-tight">使用中(已压缩)</div>
-            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">{usedMemGB.toFixed(1)} GB <span className="text-[16px] text-text-secondary font-normal">(0.0 MB)</span></div>
+            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">{usedMemGB.toFixed(1)} GB</div>
           </div>
           <div>
             <div className="text-[12px] text-text-secondary leading-tight">已提交</div>
-            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">{usedMemGB.toFixed(1)}/{(totalMemGB * 1.2).toFixed(1)} GB</div>
+            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">—</div>
           </div>
           <div>
             <div className="text-[12px] text-text-secondary leading-tight">分页缓冲池</div>
-            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">1.6 GB</div>
+            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">—</div>
           </div>
         </div>
 
@@ -258,20 +258,20 @@ function MemoryDetail({ memoryData, currentMem, totalMemGB, usedMemGB, availMemG
           </div>
           <div>
             <div className="text-[12px] text-text-secondary leading-tight">已缓存</div>
-            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">{(availMemGB * 0.9).toFixed(1)} GB</div>
+            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">—</div>
           </div>
           <div>
             <div className="text-[12px] text-text-secondary leading-tight">非分页缓冲池</div>
-            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">1.7 GB</div>
+            <div className="text-[30px] font-normal text-text-primary tabular-nums leading-none mt-0.5">—</div>
           </div>
         </div>
 
         {/* Column 3 */}
         <div className="flex flex-col gap-1 text-[12px] min-w-[200px]">
-          <div className="flex justify-between"><span className="text-text-secondary">速度:</span><span className="text-text-primary tabular-nums">6400 MT/秒</span></div>
-          <div className="flex justify-between"><span className="text-text-secondary">已使用的插槽:</span><span className="text-text-primary tabular-nums">8/8</span></div>
-          <div className="flex justify-between"><span className="text-text-secondary">外形规格:</span><span className="text-text-primary">主板集成</span></div>
-          <div className="flex justify-between"><span className="text-text-secondary">为硬件保留的内存:</span><span className="text-text-primary tabular-nums">586 MB</span></div>
+          <div className="flex justify-between"><span className="text-text-secondary">速度:</span><span className="text-text-primary tabular-nums">—</span></div>
+          <div className="flex justify-between"><span className="text-text-secondary">已使用的插槽:</span><span className="text-text-primary tabular-nums">—</span></div>
+          <div className="flex justify-between"><span className="text-text-secondary">外形规格:</span><span className="text-text-primary">—</span></div>
+          <div className="flex justify-between"><span className="text-text-secondary">为硬件保留的内存:</span><span className="text-text-primary tabular-nums">—</span></div>
         </div>
       </div>
     </>

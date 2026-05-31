@@ -143,7 +143,12 @@ export function AIPage() {
     ]);
 
     try {
-      await invoke("ai_chat", { requestId, userMessage: trimmed });
+      // Build conversation history (last 6 messages for context)
+      const recentHistory = messages.slice(-6).filter(m => m.content).map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+      await invoke("ai_chat", { requestId, userMessage: trimmed, history: recentHistory.length > 0 ? recentHistory : null });
     } catch (e) {
       setIsStreaming(false);
       setError(typeof e === "string" ? e : t("ai.errorInvoke"));

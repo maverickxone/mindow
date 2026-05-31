@@ -4,6 +4,7 @@
 mod ai_bridge;
 mod commands;
 mod global_shortcut;
+mod history_db;
 mod icons;
 mod notifications;
 mod sampling;

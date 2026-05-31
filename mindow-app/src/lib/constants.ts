@@ -5,4 +5,4 @@
  * `src-tauri/src/sampling.rs`. Per-interval byte counts (disk I/O) are
  * divided by this value to convert them into per-second rates for display.
  */
-export const SAMPLING_INTERVAL_SECS = 1;
+export const SAMPLING_INTERVAL_SECS = 2;

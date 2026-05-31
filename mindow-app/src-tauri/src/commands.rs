@@ -17,6 +17,8 @@ pub struct PerformanceHistoryResponse {
     pub memory_history: Vec<f64>,
     pub disk_read_history: Vec<u64>,
     pub disk_write_history: Vec<u64>,
+    pub battery_history: Vec<f32>,
+    pub per_core_cpu: Vec<f32>,
     pub timestamps: Vec<u64>,
 }
 
@@ -54,6 +56,8 @@ pub fn get_performance_history(state: State<Arc<AppState>>) -> PerformanceHistor
         memory_history: history.memory_history.iter().copied().collect(),
         disk_read_history: history.disk_read_history.iter().copied().collect(),
         disk_write_history: history.disk_write_history.iter().copied().collect(),
+        battery_history: history.battery_history.iter().copied().collect(),
+        per_core_cpu: history.per_core_cpu.clone(),
         timestamps,
     }
 }
@@ -197,15 +201,17 @@ pub fn get_autostart_status() -> bool {
 
 /// AI chat: streams a free-form AI conversation response via events.
 /// System context (CPU, memory, top processes) is automatically attached.
+/// Supports multi-turn conversation by accepting a messages history array.
 #[tauri::command]
 pub async fn ai_chat(
     request_id: String,
     user_message: String,
+    history: Option<Vec<crate::ai_bridge::ChatMessage>>,
     app_handle: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     let state_ref = state.inner().as_ref();
-    ai_bridge::stream_chat(app_handle, &request_id, &user_message, state_ref).await
+    ai_bridge::stream_chat(app_handle, &request_id, &user_message, history.as_deref(), state_ref).await
 }
 
 /// Application settings structure serialized to/from JSON config file.

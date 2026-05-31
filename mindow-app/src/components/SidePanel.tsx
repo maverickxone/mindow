@@ -64,6 +64,18 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
   const pidRef = useRef<number | null>(selectedPid);
   pidRef.current = selectedPid;
 
+  // Auto-focus the panel when it opens for keyboard accessibility
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedPid !== null && panelRef.current) {
+      // Focus the first focusable element inside the panel
+      const firstFocusable = panelRef.current.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
+  }, [selectedPid]);
+
   // 获取当前选中的进程信息
   const selectedProcess = useMemo<ProcessInfo | undefined>(
     () => processes.find((p) => p.pid === selectedPid),
@@ -193,9 +205,14 @@ export function SidePanel({ selectedPid, onClose }: SidePanelProps) {
 
       {/* Overlay drawer panel */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={selectedProcess ? friendlyName(selectedProcess.name) : "Process details"}
         className="fixed top-0 right-0 z-50 h-full bg-surface-1 border-l border-border
           overflow-y-auto shadow-[-4px_0_16px_rgba(0,0,0,0.12)] animate-panel-in"
         style={{ width: panelWidth }}
+        onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
       >
         {/* Resize handle on the left edge */}
         <div

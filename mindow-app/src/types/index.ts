@@ -38,6 +38,8 @@ export interface PerformanceHistory {
   memory_history: number[];
   disk_read_history: number[];
   disk_write_history: number[];
+  battery_history: number[];
+  per_core_cpu: number[];
   timestamps: number[];
 }
 

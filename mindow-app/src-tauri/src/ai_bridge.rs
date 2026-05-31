@@ -11,6 +11,13 @@ use mindow_ai::config::{self, AiConfig};
 
 use crate::state::AppState;
 
+/// A single message in a multi-turn conversation.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
 /// Payload emitted to the frontend on each streaming text chunk.
 /// `request_id` lets the frontend ignore events from a stale/other stream.
 #[derive(Debug, Clone, Serialize)]
@@ -220,12 +227,22 @@ pub async fn stream_analyze_process(
     // System context
     let system_context = build_system_context(state);
 
-    // Build prompts
-    let system_prompt = "你是一个 Windows 系统资源分析师。请用通俗易懂的中文分析用户指定的进程，包括：\n\
-        1. 这个进程是什么软件？做什么用的？\n\
-        2. 当前资源占用是否正常？\n\
-        3. 如果有异常，给出具体建议。\n\
-        保持回复简洁实用，面向非技术用户。";
+    // Build prompts (language-aware)
+    let system_prompt = if ai_config.language == "en" {
+        "You are a Windows system resource analyst. Briefly analyze the specified process.\n\
+        Reply in exactly this format (no more than 3 sentences total):\n\
+        1. [What] One sentence about what this software is\n\
+        2. [Status] Whether resource usage is normal/high/abnormal\n\
+        3. [Advice] If abnormal, one sentence of advice; if normal, skip this\n\n\
+        Do not output anything extra."
+    } else {
+        "你是一个 Windows 系统资源分析师。请用通俗易懂的中文简要分析用户指定的进程。\n\
+        严格按以下格式回复（总计不超过 3 句话）：\n\
+        1. 【是什么】一句话说明这个进程是什么软件\n\
+        2. 【状态】当前资源占用是否正常（正常/偏高/异常）\n\
+        3. 【建议】如果异常，一句话给出建议；如果正常则省略此条\n\n\
+        不要输出多余内容，不要使用标题或列表符号。"
+    };
 
     let user_prompt = format!(
         "{}\n\n{}\n\n请分析进程「{}」的状态。",
@@ -257,10 +274,12 @@ pub async fn stream_analyze_process(
 ///
 /// Attaches the current system state summary so the AI can answer
 /// system-related questions with real-time data awareness.
+/// Supports multi-turn conversation by accepting recent message history.
 pub async fn stream_chat(
     app_handle: tauri::AppHandle,
     request_id: &str,
     user_message: &str,
+    history: Option<&[ChatMessage]>,
     state: &AppState,
 ) -> Result<(), String> {
     let ai_config = load_ai_config()?;
@@ -269,19 +288,49 @@ pub async fn stream_chat(
     // System context
     let system_context = build_system_context(state);
 
-    // Build prompts
-    let system_prompt = format!(
-        "你是 Mindow 智能助手，一个 Windows 系统资源分析工具的 AI 助手。\n\
-         用户可能会问你关于系统状态、进程、性能优化等问题。\n\
-         请用通俗易懂的中文回答，面向非技术用户。\n\
-         \n\
-         以下是当前系统的实时数据，你可以基于这些数据回答用户问题：\n\
-         \n\
-         {}",
-        system_context
-    );
+    // Build prompts (language-aware)
+    let system_prompt = if ai_config.language == "en" {
+        format!(
+            "You are Mindow AI assistant, an AI helper for a Windows system resource monitoring tool.\n\
+             Users may ask about system status, processes, or performance optimization.\n\
+             Answer clearly and concisely for non-technical users.\n\
+             \n\
+             Here is the current real-time system data you can reference:\n\
+             \n\
+             {}",
+            system_context
+        )
+    } else {
+        format!(
+            "你是 Mindow 智能助手，一个 Windows 系统资源分析工具的 AI 助手。\n\
+             用户可能会问你关于系统状态、进程、性能优化等问题。\n\
+             请用通俗易懂的中文回答，面向非技术用户。\n\
+             \n\
+             以下是当前系统的实时数据，你可以基于这些数据回答用户问题：\n\
+             \n\
+             {}",
+            system_context
+        )
+    };
 
-    let user_prompt = user_message.to_string();
+    // Build user prompt with conversation history for multi-turn context
+    let user_prompt = if let Some(msgs) = history {
+        // Include up to 6 recent messages for context, then the current message
+        let recent: Vec<&ChatMessage> = msgs.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev().collect();
+        let mut prompt = String::new();
+        if !recent.is_empty() {
+            prompt.push_str("以下是之前的对话记录：\n\n");
+            for msg in &recent {
+                let label = if msg.role == "user" { "用户" } else { "助手" };
+                prompt.push_str(&format!("{}：{}\n\n", label, msg.content));
+            }
+            prompt.push_str("---\n\n");
+        }
+        prompt.push_str(&format!("用户最新提问：{}", user_message));
+        prompt
+    } else {
+        user_message.to_string()
+    };
 
     // Stream the response
     let mut callback = TauriStreamCallback {

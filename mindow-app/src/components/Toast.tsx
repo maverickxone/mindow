@@ -182,7 +182,7 @@ function getColorClasses(type: ToastType): string {
     case "error":
       return "bg-state-danger text-white";
     case "warning":
-      return "bg-state-warning text-white";
+      return "bg-amber-100 text-amber-900 border border-amber-300";
     case "info":
       return "bg-accent text-white";
   }

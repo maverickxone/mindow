@@ -160,6 +160,7 @@ export function ProcessTable({
   const parentRef = useRef<HTMLDivElement>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const recentlyExpandedRef = useRef<Set<string>>(new Set());
+  const expandTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const alerts = useProcessStore((s) => s.alerts);
   const system = useProcessStore((s) => s.system);
   const totalMemory = system?.total_memory ?? 1;
@@ -174,9 +175,11 @@ export function ProcessTable({
         next.add(name);
         recentlyExpandedRef.current.add(name);
         // Clear the animation flag after the animation completes (200ms)
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           recentlyExpandedRef.current.delete(name);
         }, 200);
+        // Store timer for potential cleanup (best-effort; ref lifecycle is component-scoped)
+        expandTimersRef.current.set(name, timer);
       }
       return next;
     });

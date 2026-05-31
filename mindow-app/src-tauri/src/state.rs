@@ -10,6 +10,8 @@ use mindow_core::types::Alert;
 use serde::Serialize;
 use serde_json;
 
+use crate::history_db::HistoryDb;
+
 /// Backend global shared state managed by Tauri.
 pub struct AppState {
     /// Current process snapshot (updated every 2 seconds)
@@ -32,6 +34,8 @@ pub struct AppState {
     pub notification_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     /// Whether system notifications are enabled (default: false, user can enable in settings)
     pub notifications_enabled: AtomicBool,
+    /// SQLite history database for long-term metrics persistence
+    pub history_db: Option<HistoryDb>,
 }
 
 /// Current snapshot of processes, system info, and active alerts.
@@ -49,6 +53,7 @@ pub struct PerformanceHistory {
     pub memory_history: VecDeque<f64>,
     pub disk_read_history: VecDeque<u64>,
     pub disk_write_history: VecDeque<u64>,
+    pub battery_history: VecDeque<f32>,
     pub per_core_cpu: Vec<f32>,
 }
 
@@ -133,6 +138,15 @@ impl AppState {
         // Read notifications_enabled from persisted settings (if available)
         let notifications_on = Self::load_notifications_enabled();
 
+        // Open history database (non-fatal if it fails)
+        let history_db = match HistoryDb::open() {
+            Ok(db) => Some(db),
+            Err(e) => {
+                eprintln!("[history_db] Failed to open: {}", e);
+                None
+            }
+        };
+
         Self {
             snapshot: Arc::new(Mutex::new(SnapshotData::default())),
             rule_engine: Arc::new(Mutex::new(rule_engine)),
@@ -143,6 +157,7 @@ impl AppState {
             knowledge_writable: knowledge_result.writable,
             notification_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             notifications_enabled: AtomicBool::new(notifications_on),
+            history_db,
         }
     }
 
@@ -197,6 +212,7 @@ impl PerformanceHistory {
             memory_history: VecDeque::with_capacity(60),
             disk_read_history: VecDeque::with_capacity(60),
             disk_write_history: VecDeque::with_capacity(60),
+            battery_history: VecDeque::with_capacity(60),
             per_core_cpu: Vec::new(),
         }
     }
