@@ -9,6 +9,7 @@
     "placeholder": "Search by name or PID..."
   },
   "processes": {
+    "loading": "Loading processes...",
     "endTask": "End task",
     "baselineTooltip": "Current memory usage is {{deviation}}× the P95 baseline",
     "columns": {
@@ -33,11 +34,13 @@
       "copyPid": "Copy PID"
     },
     "toast": {
-      "killSuccess": "Ended process \"{{name}}\"",
-      "killBatchSuccess": "Successfully ended {{success}} processes",
-      "killBatchPartial": "Ended processes: {{success}} succeeded, {{fail}} failed",
-      "killError": "Failed to end process: {{message}}",
-      "openLocationError": "Failed to open file location: {{message}}"
+      "killSuccess": "Ended task \"{{name}}\"",
+      "killBatchSuccess": "Successfully ended {{success}} tasks",
+      "killBatchPartial": "Ended tasks: {{success}} succeeded, {{fail}} failed",
+      "killError": "Failed to end task: {{message}}",
+      "openLocationError": "Failed to open file location: {{message}}",
+      "copyNameSuccess": "Name copied",
+      "copyPidSuccess": "PID copied"
     },
     "detail": {
       "title": "Process Details",
@@ -63,6 +66,7 @@
     "cpuAverage": "Average",
     "core": "Core {{index}}",
     "cores": "{{count}} cores",
+    "logicalProcessors": "{{count}} logical processors",
     "highest": "Highest",
     "used": "Used",
     "read": "Read",
@@ -72,10 +76,24 @@
     "memoryTotal": "Total Memory",
     "diskRead": "Disk Read",
     "diskWrite": "Disk Write",
+    "diskType": "Disk",
     "battery": "Battery",
     "charging": "Charging",
+    "batteryFull": "Full",
+    "batteryOnBattery": "On battery",
+    "batteryFullyCharged": "Fully charged",
+    "batteryDischarging": "Discharging",
+    "batteryStatus": "Status",
     "dataPoints": "Data Points",
     "samplingInterval": "Sampling Interval: 2s",
+    "loading": "Collecting data...",
+    "timeSpan": "60 seconds",
+    "memoryComposition": "Memory composition",
+    "memCommitted": "Committed",
+    "memCached": "Cached",
+    "memAvailable": "Available",
+    "overview": "Overview",
+    "overviewDesc": "All metrics",
     "cpuAverageSeries": "CPU Average",
     "memorySeries": "Memory",
     "readSeries": "Read",
@@ -102,7 +120,10 @@
     "waitingResponse": "Waiting for AI response...",
     "analysisFailed": "Analysis Failed",
     "analysisSuggestion": "Suggestion: Please check your network connection or verify your AI API key is properly configured.",
-    "analyzeError": "AI analysis request failed: {{error}}. Please check your network connection or API configuration."
+    "analyzeError": "AI analysis request failed: {{error}}. Please check your network connection or API configuration.",
+    "stop": "Stop",
+    "copied": "Copied",
+    "copy": "Copy"
   },
   "settings": {
     "title": "Settings",
@@ -114,15 +135,29 @@
     "themeLight": "Light",
     "autoStart": "Auto Start",
     "autoStartDesc": "Launch Mindow on system startup",
+    "notifications": "Notifications",
+    "notificationsDesc": "Enable system notifications for performance alerts",
     "shortcut": "Global Shortcut",
     "shortcutHint": "Press to show/hide window",
     "aiConfig": "AI Configuration",
+    "aiProvider": "Provider",
+    "aiModel": "Model",
+    "aiBaseUrl": "API Base URL",
     "aiEndpoint": "API Endpoint",
     "aiApiKey": "API Key",
+    "aiApiKeyShow": "Show key",
+    "aiApiKeyHide": "Hide key",
     "saveAiConfig": "Save",
+    "saveAiConfigSuccess": "AI configuration saved successfully",
+    "saveAiConfigError": "Failed to save AI config: {{message}}",
+    "testConnection": "Test Connection",
+    "testConnectionSuccess": "Connection successful",
+    "testConnectionError": "Connection failed: {{message}}",
+    "testConnectionTesting": "Testing...",
     "comingSoon": "Coming Soon"
   },
   "common": {
-    "comingSoon": "{{title}} — Coming Soon"
+    "comingSoon": "{{title}} — Coming Soon",
+    "minimizedToTray": "Minimized to system tray"
   }
 }

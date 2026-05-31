@@ -18,6 +18,86 @@ interface ContextMenuProps {
   onProcessKilled?: () => void;
 }
 
+/* ── Inline SVG Icons (lucide-style, stroke-width: var(--stroke-icon)) ── */
+
+function IconXCircle({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m15 9-6 6" />
+      <path d="m9 9 6 6" />
+    </svg>
+  );
+}
+
+function IconFolderOpen({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
+function IconCopy({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+function IconHash({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="4" x2="20" y1="9" y2="9" />
+      <line x1="4" x2="20" y1="15" y2="15" />
+      <line x1="10" x2="8" y1="3" y2="21" />
+      <line x1="16" x2="14" y1="3" y2="21" />
+    </svg>
+  );
+}
+
 export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,6 +184,7 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
     onClose();
     if (state.targetProcess) {
       navigator.clipboard.writeText(state.targetProcess.name);
+      showToast("success", t("processes.toast.copyNameSuccess"));
     }
   };
 
@@ -111,6 +192,7 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
     onClose();
     if (state.targetProcess) {
       navigator.clipboard.writeText(String(state.targetProcess.pid));
+      showToast("success", t("processes.toast.copyPidSuccess"));
     }
   };
 
@@ -118,38 +200,57 @@ export function ContextMenu({ state, onClose, onProcessKilled }: ContextMenuProp
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-50 min-w-[180px] bg-secondary border border-border rounded-md shadow-xl py-1 text-xs"
+      className="fixed z-50 min-w-[180px] bg-surface-3 border border-border rounded-md shadow-xl py-1 text-xs"
       style={{ left: pos.left, top: pos.top }}
     >
       <MenuItem
+        icon={<IconXCircle />}
         label={isMultiSelect ? t("processes.contextMenu.killMultiple", { count: processCount }) : t("processes.contextMenu.kill")}
         onClick={handleKillProcess}
+        danger
       />
       <MenuItem
+        icon={<IconFolderOpen />}
         label={t("processes.contextMenu.openLocation")}
         onClick={handleOpenFileLocation}
         disabled={!hasExePath}
       />
       <div className="my-1 border-t border-border" />
-      <MenuItem label={t("processes.contextMenu.copyName")} onClick={handleCopyName} />
-      <MenuItem label={t("processes.contextMenu.copyPid")} onClick={handleCopyPid} />
+      <MenuItem icon={<IconCopy />} label={t("processes.contextMenu.copyName")} onClick={handleCopyName} />
+      <MenuItem icon={<IconHash />} label={t("processes.contextMenu.copyPid")} onClick={handleCopyPid} />
     </div>
   );
 }
 
-function MenuItem({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  disabled,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  const baseClasses = "w-full text-left px-3 py-1.5 flex items-center gap-2 transition-colors focus-ring";
+  const stateClasses = disabled
+    ? "text-text-muted cursor-not-allowed"
+    : danger
+      ? "text-state-danger hover:bg-surface-2"
+      : "text-text-primary hover:bg-surface-2";
+
   return (
     <button
       role="menuitem"
-      className={`w-full text-left px-4 py-1.5 transition-colors ${
-        disabled
-          ? "text-text-muted cursor-not-allowed"
-          : "hover:bg-tertiary text-text-primary"
-      }`}
+      className={`${baseClasses} ${stateClasses}`}
       onClick={onClick}
       disabled={disabled}
     >
-      {label}
+      <span className="flex-shrink-0 opacity-80">{icon}</span>
+      <span>{label}</span>
     </button>
   );
 }

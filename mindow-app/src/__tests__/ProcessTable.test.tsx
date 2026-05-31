@@ -84,8 +84,9 @@ describe("ProcessTable", () => {
 
     render(<ProcessTable processes={processes} {...defaultProps} />);
 
-    expect(screen.getByText("chrome.exe")).toBeInTheDocument();
-    expect(screen.getByText("firefox.exe")).toBeInTheDocument();
+    // Display strips the .exe suffix for a cleaner look (full name in tooltip)
+    expect(screen.getByText("chrome")).toBeInTheDocument();
+    expect(screen.getByText("firefox")).toBeInTheDocument();
   });
 
   it("按 path_status 分组显示进程", () => {
@@ -126,7 +127,8 @@ describe("ProcessTable", () => {
   it("渲染单实例进程组（显示进程名）", () => {
     const processes = [createProcess({ name: "app.exe", pid: 9876 })];
     render(<ProcessTable processes={processes} {...defaultProps} />);
-    expect(screen.getByText("app.exe")).toBeInTheDocument();
+    // .exe suffix stripped for display
+    expect(screen.getByText("app")).toBeInTheDocument();
   });
 
   it("仅有 User 进程时只显示应用分组", () => {

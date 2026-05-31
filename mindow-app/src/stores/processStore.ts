@@ -106,9 +106,17 @@ export const useProcessStore = create<ProcessState>((set) => ({
 
 /** 根据搜索关键词过滤进程列表 */
 export function filterProcesses(processes: ProcessInfo[], query: string): ProcessInfo[] {
-  if (!query.trim()) return processes;
-  const lowerQuery = query.toLowerCase();
-  return processes.filter((p) => p.name.toLowerCase().includes(lowerQuery));
+  const trimmed = query.trim();
+  if (!trimmed) return processes;
+  const lowerQuery = trimmed.toLowerCase();
+  const isNumeric = /^\d+$/.test(trimmed);
+
+  return processes.filter((p) => {
+    if (isNumeric) {
+      return p.name.toLowerCase().includes(lowerQuery) || p.pid.toString() === trimmed;
+    }
+    return p.name.toLowerCase().includes(lowerQuery);
+  });
 }
 
 /** 根据列和方向排序进程列表 */

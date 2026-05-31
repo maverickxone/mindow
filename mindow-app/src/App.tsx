@@ -11,6 +11,7 @@ import { PerformancePage } from "./pages/PerformancePage";
 import { AIPage } from "./pages/AIPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ToastContainer } from "./components/Toast";
+import { ResizeHandles } from "./components/ResizeHandles";
 import type { SnapshotData } from "./types";
 
 function App() {
@@ -64,16 +65,19 @@ function App() {
       {/* Custom title bar */}
       <TitleBar searchQuery={searchQuery} onSearch={setSearchQuery} />
 
-      {/* Main area: sidebar + content */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Main area: sidebar + content (push mode — content shifts when sidebar expands) */}
+      <div className="flex-1 overflow-hidden flex">
         <Sidebar activePage={activePage} onNavigate={setActivePage} />
-        <main className="flex-1 overflow-hidden">
+        <main className="h-full overflow-hidden flex-1">
           {renderPage()}
         </main>
       </div>
 
       {/* Toast notifications */}
       <ToastContainer />
+
+      {/* Window resize handles (borderless window) */}
+      <ResizeHandles />
     </div>
   );
 }

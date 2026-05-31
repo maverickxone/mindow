@@ -12,3 +12,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Fade out startup placeholder after React hydrates (Req 19.3)
+const placeholder = document.getElementById("startup-placeholder");
+if (placeholder) {
+  placeholder.classList.add("fade-out");
+  placeholder.addEventListener("transitionend", () => placeholder.remove());
+}

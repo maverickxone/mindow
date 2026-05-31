@@ -9,6 +9,7 @@
     "placeholder": "搜索进程名称或 PID..."
   },
   "processes": {
+    "loading": "正在加载进程...",
     "endTask": "结束任务",
     "baselineTooltip": "当前内存占用超过基线 P95 的 {{deviation}} 倍",
     "columns": {
@@ -26,18 +27,20 @@
       "system": "系统进程"
     },
     "contextMenu": {
-      "kill": "结束进程",
-      "killMultiple": "结束 {{count}} 个进程",
+      "kill": "结束任务",
+      "killMultiple": "结束 {{count}} 个任务",
       "openLocation": "打开文件所在位置",
       "copyName": "复制进程名",
       "copyPid": "复制 PID"
     },
     "toast": {
-      "killSuccess": "已结束进程「{{name}}」",
-      "killBatchSuccess": "成功结束 {{success}} 个进程",
-      "killBatchPartial": "结束进程：{{success}} 个成功，{{fail}} 个失败",
-      "killError": "结束进程失败：{{message}}",
-      "openLocationError": "打开文件位置失败：{{message}}"
+      "killSuccess": "已结束任务「{{name}}」",
+      "killBatchSuccess": "成功结束 {{success}} 个任务",
+      "killBatchPartial": "结束任务：{{success}} 个成功，{{fail}} 个失败",
+      "killError": "结束任务失败：{{message}}",
+      "openLocationError": "打开文件位置失败：{{message}}",
+      "copyNameSuccess": "已复制进程名",
+      "copyPidSuccess": "已复制 PID"
     },
     "detail": {
       "title": "进程详情",
@@ -63,6 +66,7 @@
     "cpuAverage": "平均",
     "core": "核心 {{index}}",
     "cores": "{{count}} 核心",
+    "logicalProcessors": "{{count}} 个逻辑处理器",
     "highest": "最高",
     "used": "已用",
     "read": "读取",
@@ -72,10 +76,24 @@
     "memoryTotal": "总内存",
     "diskRead": "磁盘读取",
     "diskWrite": "磁盘写入",
+    "diskType": "磁盘",
     "battery": "电池",
     "charging": "充电中",
+    "batteryFull": "已充满",
+    "batteryOnBattery": "使用电池",
+    "batteryFullyCharged": "已充满",
+    "batteryDischarging": "放电中",
+    "batteryStatus": "状态",
     "dataPoints": "数据点",
     "samplingInterval": "采样间隔: 2秒",
+    "loading": "正在采集数据…",
+    "timeSpan": "60 秒",
+    "memoryComposition": "内存组合",
+    "memCommitted": "已提交",
+    "memCached": "已缓存",
+    "memAvailable": "可用",
+    "overview": "概览",
+    "overviewDesc": "多指标同屏",
     "cpuAverageSeries": "CPU 平均",
     "memorySeries": "内存",
     "readSeries": "读取",
@@ -102,7 +120,10 @@
     "waitingResponse": "等待 AI 响应...",
     "analysisFailed": "分析失败",
     "analysisSuggestion": "建议：请检查网络连接是否正常，或确认 AI API 密钥已正确配置。",
-    "analyzeError": "AI 分析请求失败：{{error}}。请检查网络连接或 API 配置是否正确。"
+    "analyzeError": "AI 分析请求失败：{{error}}。请检查网络连接或 API 配置是否正确。",
+    "stop": "停止",
+    "copied": "已复制",
+    "copy": "复制"
   },
   "settings": {
     "title": "设置",
@@ -114,15 +135,29 @@
     "themeLight": "浅色",
     "autoStart": "开机自启",
     "autoStartDesc": "系统启动时自动运行 Mindow",
+    "notifications": "通知",
+    "notificationsDesc": "启用系统通知以接收性能告警",
     "shortcut": "全局快捷键",
     "shortcutHint": "按下快捷键呼出/隐藏窗口",
     "aiConfig": "AI 配置",
+    "aiProvider": "服务商",
+    "aiModel": "模型",
+    "aiBaseUrl": "API 基础地址",
     "aiEndpoint": "API 端点",
     "aiApiKey": "API 密钥",
+    "aiApiKeyShow": "显示密钥",
+    "aiApiKeyHide": "隐藏密钥",
     "saveAiConfig": "保存",
+    "saveAiConfigSuccess": "AI 配置保存成功",
+    "saveAiConfigError": "AI 配置保存失败：{{message}}",
+    "testConnection": "测试连接",
+    "testConnectionSuccess": "连接成功",
+    "testConnectionError": "连接失败：{{message}}",
+    "testConnectionTesting": "测试中...",
     "comingSoon": "即将实现"
   },
   "common": {
-    "comingSoon": "{{title}} — 即将实现"
+    "comingSoon": "{{title}} — 即将实现",
+    "minimizedToTray": "已最小化到系统托盘"
   }
 }

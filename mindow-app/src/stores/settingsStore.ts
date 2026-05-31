@@ -12,9 +12,23 @@ export interface AppSettings {
   shortcut: string;
   aiEndpoint: string;
   aiApiKey: string;
+  sidebarExpanded: boolean;
+  notificationsEnabled: boolean;
+}
+
+export interface AiConfig {
+  provider: string;
+  model: string;
+  base_url: string;
+  api_key: string;
 }
 
 interface SettingsState extends AppSettings {
+  /** Extended AI config fields (stored locally, written to config.toml via save_ai_config) */
+  aiProvider: string;
+  aiModel: string;
+  aiBaseUrl: string;
+
   /** Whether settings have been loaded from backend */
   loaded: boolean;
 
@@ -35,6 +49,20 @@ interface SettingsState extends AppSettings {
   setAiEndpoint: (endpoint: string) => void;
   /** Set AI API key */
   setAiApiKey: (key: string) => void;
+  /** Set sidebar expanded state and persist */
+  setSidebarExpanded: (expanded: boolean) => void;
+  /** Set notifications enabled state and persist immediately */
+  setNotificationsEnabled: (enabled: boolean) => void;
+  /** Set AI provider */
+  setAiProvider: (provider: string) => void;
+  /** Set AI model */
+  setAiModel: (model: string) => void;
+  /** Set AI base URL */
+  setAiBaseUrl: (baseUrl: string) => void;
+  /** Save AI config to config.toml via dedicated backend command */
+  saveAiConfig: () => Promise<void>;
+  /** Test AI connection with current config */
+  testAiConnection: () => Promise<string>;
 }
 
 /** Apply theme to document root via data-theme attribute */
@@ -53,6 +81,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   shortcut: "Ctrl+Shift+M",
   aiEndpoint: "",
   aiApiKey: "",
+  sidebarExpanded: false,
+  notificationsEnabled: false,
+  aiProvider: "openai",
+  aiModel: "",
+  aiBaseUrl: "https://api.openai.com/v1",
   loaded: false,
 
   loadSettings: async () => {
@@ -63,6 +96,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       if (settings.language && settings.language !== i18n.language) {
         i18n.changeLanguage(settings.language);
       }
+      // Also load aiEndpoint into aiBaseUrl for backward compatibility
+      if (settings.aiEndpoint) {
+        set({ aiBaseUrl: settings.aiEndpoint });
+      }
+      if (settings.aiApiKey) {
+        set({ aiApiKey: settings.aiApiKey });
+      }
     } catch {
       // If backend command fails, use defaults
       set({ loaded: true });
@@ -70,8 +110,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   saveSettings: async () => {
-    const { theme, language, autostart, shortcut, aiEndpoint, aiApiKey } = get();
-    const settings: AppSettings = { theme, language, autostart, shortcut, aiEndpoint, aiApiKey };
+    const { theme, language, autostart, shortcut, aiEndpoint, aiApiKey, sidebarExpanded, notificationsEnabled } = get();
+    const settings: AppSettings = { theme, language, autostart, shortcut, aiEndpoint, aiApiKey, sidebarExpanded, notificationsEnabled };
     try {
       await invoke("save_settings", { settings });
     } catch (e) {
@@ -80,11 +120,26 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   setTheme: (theme: ThemeMode) => {
+    // Add transition attribute for smooth color switch (Req 20.1)
+    document.documentElement.setAttribute("data-theme-transition", "");
     applyTheme(theme);
     set({ theme });
+    // Remove transition attribute after animation completes
+    setTimeout(() => {
+      document.documentElement.removeAttribute("data-theme-transition");
+    }, 250);
     // Persist in background
     const state = get();
-    const settings: AppSettings = { ...state, theme };
+    const settings: AppSettings = {
+      theme,
+      language: state.language,
+      autostart: state.autostart,
+      shortcut: state.shortcut,
+      aiEndpoint: state.aiEndpoint,
+      aiApiKey: state.aiApiKey,
+      sidebarExpanded: state.sidebarExpanded,
+      notificationsEnabled: state.notificationsEnabled,
+    };
     invoke("save_settings", { settings }).catch(() => {});
   },
 
@@ -93,7 +148,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ language: lang });
     // Persist in background
     const state = get();
-    const settings: AppSettings = { ...state, language: lang };
+    const settings: AppSettings = {
+      theme: state.theme,
+      language: lang,
+      autostart: state.autostart,
+      shortcut: state.shortcut,
+      aiEndpoint: state.aiEndpoint,
+      aiApiKey: state.aiApiKey,
+      sidebarExpanded: state.sidebarExpanded,
+      notificationsEnabled: state.notificationsEnabled,
+    };
     invoke("save_settings", { settings }).catch(() => {});
   },
 
@@ -103,7 +167,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       set({ autostart: enabled });
       // Persist in background
       const state = get();
-      const settings: AppSettings = { ...state, autostart: enabled };
+      const settings: AppSettings = {
+        theme: state.theme,
+        language: state.language,
+        autostart: enabled,
+        shortcut: state.shortcut,
+        aiEndpoint: state.aiEndpoint,
+        aiApiKey: state.aiApiKey,
+        sidebarExpanded: state.sidebarExpanded,
+        notificationsEnabled: state.notificationsEnabled,
+      };
       invoke("save_settings", { settings }).catch(() => {});
     } catch (e) {
       console.error("Failed to toggle autostart:", e);
@@ -114,7 +187,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ shortcut });
     // Persist in background
     const state = get();
-    const settings: AppSettings = { ...state, shortcut };
+    const settings: AppSettings = {
+      theme: state.theme,
+      language: state.language,
+      autostart: state.autostart,
+      shortcut,
+      aiEndpoint: state.aiEndpoint,
+      aiApiKey: state.aiApiKey,
+      sidebarExpanded: state.sidebarExpanded,
+      notificationsEnabled: state.notificationsEnabled,
+    };
     invoke("save_settings", { settings }).catch(() => {});
   },
 
@@ -124,5 +206,76 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setAiApiKey: (key: string) => {
     set({ aiApiKey: key });
+  },
+
+  setSidebarExpanded: (expanded: boolean) => {
+    set({ sidebarExpanded: expanded });
+    // Persist in background
+    const state = get();
+    const settings: AppSettings = {
+      theme: state.theme,
+      language: state.language,
+      autostart: state.autostart,
+      shortcut: state.shortcut,
+      aiEndpoint: state.aiEndpoint,
+      aiApiKey: state.aiApiKey,
+      sidebarExpanded: expanded,
+      notificationsEnabled: state.notificationsEnabled,
+    };
+    invoke("save_settings", { settings }).catch(() => {});
+  },
+
+  setNotificationsEnabled: (enabled: boolean) => {
+    set({ notificationsEnabled: enabled });
+    // Persist immediately (Requirement 16.2)
+    const state = get();
+    const settings: AppSettings = {
+      theme: state.theme,
+      language: state.language,
+      autostart: state.autostart,
+      shortcut: state.shortcut,
+      aiEndpoint: state.aiEndpoint,
+      aiApiKey: state.aiApiKey,
+      sidebarExpanded: state.sidebarExpanded,
+      notificationsEnabled: enabled,
+    };
+    invoke("save_settings", { settings }).catch(() => {});
+  },
+
+  setAiProvider: (provider: string) => {
+    set({ aiProvider: provider });
+  },
+
+  setAiModel: (model: string) => {
+    set({ aiModel: model });
+  },
+
+  setAiBaseUrl: (baseUrl: string) => {
+    set({ aiBaseUrl: baseUrl });
+  },
+
+  saveAiConfig: async () => {
+    const { aiProvider, aiModel, aiBaseUrl, aiApiKey } = get();
+    const config: AiConfig = {
+      provider: aiProvider,
+      model: aiModel,
+      base_url: aiBaseUrl,
+      api_key: aiApiKey,
+    };
+    await invoke("save_ai_config", { config });
+    // Also sync aiEndpoint for backward compat
+    set({ aiEndpoint: aiBaseUrl });
+  },
+
+  testAiConnection: async () => {
+    const { aiProvider, aiModel, aiBaseUrl, aiApiKey } = get();
+    const config: AiConfig = {
+      provider: aiProvider,
+      model: aiModel,
+      base_url: aiBaseUrl,
+      api_key: aiApiKey,
+    };
+    const result = await invoke<string>("test_ai_connection", { config });
+    return result;
   },
 }));

@@ -44,6 +44,8 @@ fn main() {
             commands::ai_chat,
             commands::get_settings,
             commands::save_settings,
+            commands::save_ai_config,
+            commands::test_ai_connection,
             commands::get_process_icon,
         ])
         .setup(move |app| {

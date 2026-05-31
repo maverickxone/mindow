@@ -8,6 +8,7 @@ use mindow_ai::knowledge::{self, KnowledgeBase};
 use mindow_core::rule_engine::RuleEngine;
 use mindow_core::types::Alert;
 use serde::Serialize;
+use serde_json;
 
 /// Backend global shared state managed by Tauri.
 pub struct AppState {
@@ -127,6 +128,9 @@ impl AppState {
         let baseline_result = baseline::load_baselines();
         let knowledge_result = knowledge::load_knowledge();
 
+        // Read notifications_enabled from persisted settings (if available)
+        let notifications_on = Self::load_notifications_enabled();
+
         Self {
             snapshot: Arc::new(Mutex::new(SnapshotData::default())),
             rule_engine: Arc::new(Mutex::new(rule_engine)),
@@ -136,8 +140,27 @@ impl AppState {
             knowledge: Arc::new(Mutex::new(knowledge_result.kb)),
             knowledge_writable: knowledge_result.writable,
             notification_cooldowns: Arc::new(Mutex::new(HashMap::new())),
-            notifications_enabled: AtomicBool::new(false), // Off by default
+            notifications_enabled: AtomicBool::new(notifications_on),
         }
+    }
+
+    /// Load notifications_enabled from the persisted gui_settings.json file.
+    fn load_notifications_enabled() -> bool {
+        let home = std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .unwrap_or_else(|_| ".".to_string());
+        let path = std::path::PathBuf::from(home).join(".mindow").join("gui_settings.json");
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                // Parse as generic JSON to extract the field
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    return val.get("notificationsEnabled")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                }
+            }
+        }
+        false
     }
 }
 

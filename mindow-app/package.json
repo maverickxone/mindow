@@ -18,6 +18,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-i18next": "^14",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "uplot": "^1.6",
     "zustand": "^4"
   },
@@ -29,6 +31,7 @@
     "@types/react-dom": "^18",
     "@vitejs/plugin-react": "^4",
     "autoprefixer": "^10",
+    "fast-check": "^3.23.2",
     "jsdom": "^29.1.1",
     "postcss": "^8",
     "tailwindcss": "^3",

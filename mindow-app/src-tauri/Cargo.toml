@@ -24,6 +24,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 proptest = "1"

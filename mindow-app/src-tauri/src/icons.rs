@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::Mutex;
 
-use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_SMALLICON};
+use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
 use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, ICONINFO};
 use windows::Win32::Graphics::Gdi::{
     GetDIBits, GetObjectW, CreateCompatibleDC, DeleteDC, SelectObject,
@@ -39,8 +39,8 @@ pub fn get_icon_base64(exe_path: &str) -> Option<String> {
     // Extract icon
     let result = extract_icon_pixels(exe_path)?;
 
-    // Encode as BMP data URL (simpler than PNG, no extra dependency)
-    let data_url = encode_rgba_as_bmp_data_url(&result.pixels, result.width, result.height);
+    // Encode as PNG data URL (proper alpha transparency support)
+    let data_url = encode_rgba_as_png_data_url(&result.pixels, result.width, result.height);
 
     // Cache it
     if let Ok(mut cache_map) = cache().lock() {
@@ -67,7 +67,7 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
             windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_NORMAL,
             Some(&mut file_info),
             std::mem::size_of::<SHFILEINFOW>() as u32,
-            SHGFI_ICON | SHGFI_SMALLICON,
+            SHGFI_ICON | SHGFI_LARGEICON,
         );
 
         if result == 0 || file_info.hIcon.is_invalid() {
@@ -138,7 +138,7 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
         SelectObject(hdc, old_bmp);
         DeleteDC(hdc).ok();
 
-        // Convert BGRA to RGBA
+        // Convert BGRA to RGBA, preserving alpha channel
         let mut rgba_pixels = Vec::with_capacity(pixel_count * 4);
         for i in 0..pixel_count {
             let offset = i * 4;
@@ -149,7 +149,8 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
             rgba_pixels.push(r);
             rgba_pixels.push(g);
             rgba_pixels.push(b);
-            rgba_pixels.push(if a == 0 && r == 0 && g == 0 && b == 0 { 0 } else { a.max(255) });
+            // Preserve original alpha; treat fully-black-zero-alpha as transparent
+            rgba_pixels.push(if a == 0 && r == 0 && g == 0 && b == 0 { 0 } else { a });
         }
 
         // Cleanup
@@ -161,45 +162,21 @@ fn extract_icon_pixels(exe_path: &str) -> Option<IconPixels> {
     }
 }
 
-/// Encode RGBA pixels as a BMP data URL (base64).
-/// Simple BMP format: header + BGRA pixel data.
-fn encode_rgba_as_bmp_data_url(rgba: &[u8], width: u32, height: u32) -> String {
-    let pixel_count = (width * height) as usize;
-    let row_size = width * 4;
-    let pixel_data_size = row_size * height;
-    let file_size = 54 + pixel_data_size; // 14 (file header) + 40 (info header) + pixels
+/// Encode RGBA pixels as a PNG data URL (base64) with proper alpha transparency.
+fn encode_rgba_as_png_data_url(rgba: &[u8], width: u32, height: u32) -> String {
+    use image::{ImageBuffer, Rgba};
+    use std::io::Cursor;
 
-    let mut bmp = Vec::with_capacity(file_size as usize);
+    let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
+        ImageBuffer::from_raw(width, height, rgba.to_vec())
+            .expect("RGBA buffer size mismatch");
 
-    // BMP File Header (14 bytes)
-    bmp.extend_from_slice(b"BM");
-    bmp.extend_from_slice(&(file_size as u32).to_le_bytes());
-    bmp.extend_from_slice(&[0u8; 4]); // reserved
-    bmp.extend_from_slice(&54u32.to_le_bytes()); // pixel data offset
+    let mut png_bytes = Vec::new();
+    let mut cursor = Cursor::new(&mut png_bytes);
+    img.write_to(&mut cursor, image::ImageFormat::Png)
+        .expect("PNG encoding failed");
 
-    // BMP Info Header (40 bytes)
-    bmp.extend_from_slice(&40u32.to_le_bytes()); // header size
-    bmp.extend_from_slice(&(width as i32).to_le_bytes());
-    bmp.extend_from_slice(&(-(height as i32)).to_le_bytes()); // top-down
-    bmp.extend_from_slice(&1u16.to_le_bytes()); // planes
-    bmp.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
-    bmp.extend_from_slice(&[0u8; 24]); // compression, size, resolution, colors (all 0)
-
-    // Pixel data: convert RGBA back to BGRA for BMP
-    for i in 0..pixel_count {
-        let offset = i * 4;
-        let r = rgba[offset];
-        let g = rgba[offset + 1];
-        let b = rgba[offset + 2];
-        let a = rgba[offset + 3];
-        bmp.push(b);
-        bmp.push(g);
-        bmp.push(r);
-        bmp.push(a);
-    }
-
-    // Base64 encode
     use base64::Engine;
-    let b64 = base64::engine::general_purpose::STANDARD.encode(&bmp);
-    format!("data:image/bmp;base64,{}", b64)
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+    format!("data:image/png;base64,{}", b64)
 }

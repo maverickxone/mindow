@@ -8,6 +8,7 @@ use tauri::{AppHandle, State};
 use crate::ai_bridge;
 use crate::state::{AppState, SnapshotData};
 use crate::system_ops;
+use mindow_ai::config as ai_config;
 
 /// Response for get_performance_history — serializes VecDeque as Vec for the frontend.
 #[derive(Debug, Clone, Serialize)]
@@ -218,6 +219,10 @@ pub struct AppSettings {
     pub ai_endpoint: String,
     #[serde(rename = "aiApiKey", default)]
     pub ai_api_key: String,
+    #[serde(rename = "sidebarExpanded", default)]
+    pub sidebar_expanded: bool,
+    #[serde(rename = "notificationsEnabled", default)]
+    pub notifications_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -229,6 +234,8 @@ impl Default for AppSettings {
             shortcut: "Ctrl+Shift+M".to_string(),
             ai_endpoint: String::new(),
             ai_api_key: String::new(),
+            sidebar_expanded: false,
+            notifications_enabled: false,
         }
     }
 }
@@ -257,8 +264,17 @@ pub fn get_settings() -> AppSettings {
 
 /// Save application settings to the config file.
 #[tauri::command]
-pub fn save_settings(settings: AppSettings) -> Result<(), String> {
+pub fn save_settings(
+    settings: AppSettings,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
     let path = settings_file_path();
+
+    // Sync notifications_enabled to runtime state
+    state.notifications_enabled.store(
+        settings.notifications_enabled,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 
     // Ensure directory exists
     if let Some(parent) = path.parent() {
@@ -273,6 +289,78 @@ pub fn save_settings(settings: AppSettings) -> Result<(), String> {
         .map_err(|e| format!("Failed to write settings file: {}", e))?;
 
     Ok(())
+}
+
+/// AI configuration structure received from the frontend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiConfigPayload {
+    pub provider: String,
+    pub model: String,
+    pub base_url: String,
+    pub api_key: String,
+}
+
+/// Save AI configuration to ~/.mindow/config.toml (the same file the AI backend reads).
+#[tauri::command]
+pub fn save_ai_config(config: AiConfigPayload) -> Result<(), String> {
+    let mut ai_cfg = ai_config::load_config().unwrap_or_default();
+    ai_cfg.provider = config.provider;
+    ai_cfg.model = config.model;
+    ai_cfg.base_url = config.base_url;
+    ai_cfg.api_key = config.api_key;
+    ai_config::save_config(&ai_cfg).map_err(|e| format!("Failed to save AI config: {}", e))
+}
+
+/// Test AI connection by making a minimal API call with the provided config.
+/// Returns Ok(()) on success, or an error string describing the failure.
+#[tauri::command]
+pub async fn test_ai_connection(config: AiConfigPayload) -> Result<String, String> {
+    use mindow_ai::client::{AiClient, AiClientConfig, ClaudeClient, OpenAiClient, Provider, StreamCallback, AiError};
+
+    // Determine provider
+    let provider = if config.provider == "claude" {
+        Provider::Claude
+    } else {
+        Provider::OpenAI
+    };
+
+    let client_config = AiClientConfig {
+        provider: provider.clone(),
+        model: config.model.clone(),
+        api_key: config.api_key.clone(),
+        base_url: config.base_url.clone(),
+        timeout_secs: 15,
+    };
+
+    // Simple callback that just captures whether we got any response
+    struct TestCallback {
+        got_response: bool,
+    }
+    impl StreamCallback for TestCallback {
+        fn on_delta(&mut self, _text: &str) {
+            self.got_response = true;
+        }
+        fn on_complete(&mut self) {}
+        fn on_error(&mut self, _error: &AiError) {}
+    }
+
+    let mut callback = TestCallback { got_response: false };
+
+    let result = match &provider {
+        Provider::OpenAI => {
+            let client = OpenAiClient::new(client_config);
+            client.stream_completion("You are a test assistant.", "Say 'ok'.", &mut callback).await
+        }
+        Provider::Claude => {
+            let client = ClaudeClient::new(client_config);
+            client.stream_completion("You are a test assistant.", "Say 'ok'.", &mut callback).await
+        }
+    };
+
+    match result {
+        Ok(_) => Ok("Connection successful".to_string()),
+        Err(e) => Err(format!("Connection failed: {}", e)),
+    }
 }
 
 /// Get the icon for a process given its exe_path. Returns a base64 data URL.

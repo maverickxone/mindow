@@ -19,9 +19,20 @@ vi.mock("react-i18next", () => ({
         "settings.shortcut": "全局快捷键",
         "settings.shortcutHint": "按键组合",
         "settings.aiConfig": "AI 配置",
+        "settings.aiProvider": "服务商",
+        "settings.aiModel": "模型",
+        "settings.aiBaseUrl": "API 基础地址",
         "settings.aiEndpoint": "API 端点",
         "settings.aiApiKey": "API 密钥",
-        "settings.saveAiConfig": "保存 AI 配置",
+        "settings.aiApiKeyShow": "显示密钥",
+        "settings.aiApiKeyHide": "隐藏密钥",
+        "settings.saveAiConfig": "保存",
+        "settings.saveAiConfigSuccess": "AI 配置保存成功",
+        "settings.saveAiConfigError": "AI 配置保存失败",
+        "settings.testConnection": "测试连接",
+        "settings.testConnectionSuccess": "连接成功",
+        "settings.testConnectionError": "连接失败",
+        "settings.testConnectionTesting": "测试中...",
       };
       return translations[key] || key;
     },
@@ -37,6 +48,11 @@ const mockSetAutostart = vi.fn();
 const mockSetShortcut = vi.fn();
 const mockSetAiEndpoint = vi.fn();
 const mockSetAiApiKey = vi.fn();
+const mockSetAiProvider = vi.fn();
+const mockSetAiModel = vi.fn();
+const mockSetAiBaseUrl = vi.fn();
+const mockSaveAiConfig = vi.fn().mockResolvedValue(undefined);
+const mockTestAiConnection = vi.fn().mockResolvedValue("Connection successful");
 
 let currentTheme = "dark";
 
@@ -48,6 +64,9 @@ vi.mock("../stores/settingsStore", () => ({
     shortcut: "Ctrl+Shift+M",
     aiEndpoint: "",
     aiApiKey: "",
+    aiProvider: "openai",
+    aiModel: "",
+    aiBaseUrl: "https://api.openai.com/v1",
     loaded: true,
     loadSettings: mockLoadSettings,
     setTheme: (theme: string) => {
@@ -65,7 +84,12 @@ vi.mock("../stores/settingsStore", () => ({
     setShortcut: mockSetShortcut,
     setAiEndpoint: mockSetAiEndpoint,
     setAiApiKey: mockSetAiApiKey,
+    setAiProvider: mockSetAiProvider,
+    setAiModel: mockSetAiModel,
+    setAiBaseUrl: mockSetAiBaseUrl,
     saveSettings: mockSaveSettings,
+    saveAiConfig: mockSaveAiConfig,
+    testAiConnection: mockTestAiConnection,
   }),
 }));
 

@@ -4,43 +4,50 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useProcessStore } from "../stores/processStore";
 import { BaselineTag } from "./BaselineTag";
 import { ProcessIcon } from "./ProcessIcon";
-import { SAMPLING_INTERVAL_SECS } from "../lib/constants";
+import { formatBytes, formatPercent, formatDiskRate } from "../lib/format";
+import { getResourceHeatBg } from "../lib/heat";
 import type { ProcessInfo, AlertInfo } from "../types";
 import type { SortColumn, SortDirection } from "../stores/processStore";
 
-/** Format bytes with thousands separator */
-function formatMemory(bytes: number): string {
-  const mb = bytes / (1024 * 1024);
-  if (mb < 1) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-  return `${mb.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} MB`;
+/* ─── SVG Icons ─── */
+
+/** Chevron icon for expand/collapse (points right, rotates 90° when expanded) */
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="transition-transform duration-150"
+      style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
+    >
+      <path d="M3.5 2 L6.5 5 L3.5 8" />
+    </svg>
+  );
 }
 
-function formatCpu(percent: number): string {
-  if (percent < 0.05) return "0%";
-  return `${percent.toFixed(1)}%`;
-}
-
-/**
- * Format a per-interval byte count as a per-second I/O rate.
- * The backend reports bytes accumulated over one sampling interval, so we
- * divide by the interval to get bytes/second before formatting.
- */
-export function formatDiskRate(bytesPerInterval: number): string {
-  const bytesPerSec = bytesPerInterval / SAMPLING_INTERVAL_SECS;
-  if (bytesPerSec < 1) return "0 MB/s";
-  const mb = bytesPerSec / (1024 * 1024);
-  if (mb < 0.1) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-  return `${mb.toFixed(1)} MB/s`;
-}
-
-/** Get heat background color based on usage percentage (0-100) */
-function getHeatBg(percent: number): string {
-  if (percent < 15) return "transparent";
-  if (percent < 40) return "var(--heat-low)";
-  if (percent < 70) return "var(--heat-med)";
-  if (percent < 90) return "var(--heat-high)";
-  return "var(--heat-extreme)";
+/** Sort arrow icon (�?or �? */
+function SortArrowIcon({ direction }: { direction: "asc" | "desc" }) {
+  return (
+    <svg
+      width="8"
+      height="8"
+      viewBox="0 0 8 8"
+      fill="currentColor"
+      className="inline-block ml-0.5 text-accent-info shrink-0"
+    >
+      {direction === "asc" ? (
+        <path d="M4 1 L7 6 L1 6 Z" />
+      ) : (
+        <path d="M4 7 L1 2 L7 2 Z" />
+      )}
+    </svg>
+  );
 }
 
 /** Merged process group */
@@ -64,10 +71,11 @@ type RowItem =
   | { type: "child"; process: ProcessInfo; parentName: string };
 
 /**
- * Sort merged groups by the active column using each group's aggregate
- * (displayed) value, so header-click sorting matches what the user sees.
+ * Sort merged groups GLOBALLY by the active column using each group's aggregate
+ * (displayed) value. Sorting operates across all groups regardless of section
+ * (apps/background/system) so that the entire list is ordered uniformly.
  */
-function sortGroups(
+function sortGroupsGlobal(
   groups: ProcessGroup[],
   column: SortColumn | null,
   direction: SortDirection
@@ -94,6 +102,11 @@ function sortGroups(
     }
   });
   return sorted;
+}
+
+/** Strip common executable extensions for display-friendly names */
+function friendlyName(name: string): string {
+  return name.replace(/\.(exe|EXE|Exe)$/, "");
 }
 
 function mergeProcesses(processes: ProcessInfo[], alerts: AlertInfo[]): ProcessGroup[] {
@@ -159,6 +172,7 @@ export function ProcessTable({
   const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const recentlyExpandedRef = useRef<Set<string>>(new Set());
   const alerts = useProcessStore((s) => s.alerts);
   const system = useProcessStore((s) => s.system);
   const totalMemory = system?.total_memory ?? 1;
@@ -166,17 +180,31 @@ export function ProcessTable({
   const toggleExpand = useCallback((name: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+        recentlyExpandedRef.current.delete(name);
+      } else {
+        next.add(name);
+        recentlyExpandedRef.current.add(name);
+        // Clear the animation flag after the animation completes (200ms)
+        setTimeout(() => {
+          recentlyExpandedRef.current.delete(name);
+        }, 200);
+      }
       return next;
     });
   }, []);
 
   const rows = useMemo<RowItem[]>(() => {
-    const groups = mergeProcesses(processes, alerts);
-    const userGroups = sortGroups(groups.filter(g => g.pathStatus === "User"), sortColumn, sortDirection);
-    const unknownGroups = sortGroups(groups.filter(g => g.pathStatus === "Unknown"), sortColumn, sortDirection);
-    const systemGroups = sortGroups(groups.filter(g => g.pathStatus === "System"), sortColumn, sortDirection);
+    const allGroups = mergeProcesses(processes, alerts);
+
+    // Sort ALL groups globally first, then partition into sections.
+    // This ensures sort order is consistent across app/background/system.
+    const sortedAll = sortGroupsGlobal(allGroups, sortColumn, sortDirection);
+
+    const userGroups = sortedAll.filter(g => g.pathStatus === "User");
+    const unknownGroups = sortedAll.filter(g => g.pathStatus === "Unknown");
+    const systemGroups = sortedAll.filter(g => g.pathStatus === "System");
 
     const result: RowItem[] = [];
     const addSection = (label: string, sectionGroups: ProcessGroup[]) => {
@@ -215,29 +243,31 @@ export function ProcessTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) => (rows[index].type === "group-header" ? 26 : 30),
+    estimateSize: (index) => (rows[index].type === "group-header" ? 26 : 34),
     overscan: 15,
   });
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Column headers */}
-      <div className="flex items-center px-3 py-1.5 border-b border-border text-[11px] text-text-secondary font-medium shrink-0 bg-tertiary">
-        <div className="flex-[2.5] px-1 text-left cursor-pointer select-none hover:text-text-primary" onClick={() => onToggleSort("name")}>
-          {t("processes.columns.name")}
-          {sortColumn === "name" && <span className="ml-0.5 text-accent-info">{sortDirection === "asc" ? "▲" : "▼"}</span>}
+      <div className="flex items-center px-3 py-1.5 border-b border-border text-[12px] text-text-secondary font-medium shrink-0 bg-tertiary">
+        <div className="flex-[2] min-w-0 px-1 text-left cursor-pointer select-none hover:text-text-primary flex items-center" onClick={() => onToggleSort("name")}>
+          {/* Spacer to align with row content: arrow(w-4=16px) + gap(6px) + icon(16px) + gap(6px) = 44px */}
+          <span className="shrink-0 w-[44px]" />
+          <span className="truncate">{t("processes.columns.name")}</span>
+          {sortColumn === "name" && <SortArrowIcon direction={sortDirection} />}
         </div>
-        <div className="w-16 px-1 text-right cursor-pointer select-none hover:text-text-primary" onClick={() => onToggleSort("cpu")}>
+        <div className="flex-1 min-w-[64px] px-1 text-right cursor-pointer select-none hover:text-text-primary flex items-center justify-end" onClick={() => onToggleSort("cpu")}>
           {t("processes.columns.cpu")}
-          {sortColumn === "cpu" && <span className="ml-0.5 text-accent-info">{sortDirection === "asc" ? "▲" : "▼"}</span>}
+          {sortColumn === "cpu" && <SortArrowIcon direction={sortDirection} />}
         </div>
-        <div className="w-24 px-1 text-right cursor-pointer select-none hover:text-text-primary" onClick={() => onToggleSort("memory")}>
+        <div className="flex-1 min-w-[80px] px-1 text-right cursor-pointer select-none hover:text-text-primary flex items-center justify-end" onClick={() => onToggleSort("memory")}>
           {t("processes.columns.memory")}
-          {sortColumn === "memory" && <span className="ml-0.5 text-accent-info">{sortDirection === "asc" ? "▲" : "▼"}</span>}
+          {sortColumn === "memory" && <SortArrowIcon direction={sortDirection} />}
         </div>
-        <div className="w-24 px-1 text-right cursor-pointer select-none hover:text-text-primary" onClick={() => onToggleSort("diskRead")}>
+        <div className="flex-1 min-w-[80px] px-1 text-right cursor-pointer select-none hover:text-text-primary flex items-center justify-end" onClick={() => onToggleSort("diskRead")}>
           {t("processes.columns.disk")}
-          {sortColumn === "diskRead" && <span className="ml-0.5 text-accent-info">{sortDirection === "asc" ? "▲" : "▼"}</span>}
+          {sortColumn === "diskRead" && <SortArrowIcon direction={sortDirection} />}
         </div>
       </div>
 
@@ -270,6 +300,7 @@ export function ProcessTable({
                     process={row.process}
                     totalMemory={totalMemory}
                     isSelected={selectedPids.has(row.process.pid)}
+                    animate={recentlyExpandedRef.current.has(row.parentName)}
                     onClick={(e) => handleRowClick(e, row.process.pid)}
                     onContextMenu={(e) => onContextMenu(e, row.process)}
                   />
@@ -299,46 +330,65 @@ function GroupRow({ group, totalMemory, isExpanded, isSelected, onToggleExpand, 
   const memPercent = (group.totalMemory / totalMemory) * 100;
 
   const rowBg = isSelected
-    ? "bg-[#0078d4]/12"
+    ? "bg-[var(--state-selected)]"
     : group.hasAlert
       ? "bg-[var(--row-warning)]"
       : "hover:bg-tertiary";
 
   return (
     <div
-      className={`flex items-center px-3 h-full text-[12px] cursor-pointer border-b border-border/40 ${rowBg} text-text-primary`}
+      className={`flex items-center px-3 min-h-[34px] h-full text-[13px] cursor-pointer ${rowBg} text-text-primary focus-ring`}
+      tabIndex={0}
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
       {/* Name */}
-      <div className="flex-[2.5] px-1 flex items-center gap-1.5 truncate">
+      <div className="flex-[2] min-w-0 px-1 flex items-center gap-1.5 overflow-hidden">
         {hasChildren ? (
           <button
-            className="w-4 h-4 flex items-center justify-center text-text-secondary hover:text-text-primary shrink-0"
+            className="w-4 h-4 flex items-center justify-center text-text-secondary hover:text-text-primary shrink-0 focus-ring"
             onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
           >
-            <span className="text-[8px] leading-none" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block", transition: "transform 0.15s" }}>
-              ▶
-            </span>
+            <ChevronIcon expanded={isExpanded} />
           </button>
         ) : (
           <span className="w-4 shrink-0" />
         )}
-        <ProcessIcon exePath={group.exePath} size={16} />
-        <span className="truncate font-medium">{group.name}</span>
-        {hasChildren && <span className="text-text-muted text-[10px] ml-0.5">({group.processes.length})</span>}
+        <ProcessIcon exePath={group.exePath} size={16} processName={group.name} />
+        <span className="truncate font-medium select-text" title={group.name}>{friendlyName(group.name)}</span>
+        {hasChildren && <span className="text-text-muted text-[10px] ml-0.5 shrink-0">({group.processes.length})</span>}
         <BaselineTag deviation={group.baselineDeviation} />
       </div>
-      {/* CPU with heat */}
-      <div className="w-16 px-1 text-right text-[11px]" style={{ backgroundColor: getHeatBg(cpuPercent) }}>
-        {formatCpu(cpuPercent)}
+      {/* CPU with heat + inline progress bar */}
+      <div
+        className="flex-1 min-w-[64px] px-1 text-right text-[12px] tabular-nums relative overflow-hidden"
+        style={{ backgroundColor: getResourceHeatBg(cpuPercent, "cpu") }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 opacity-15 pointer-events-none"
+          style={{
+            width: `${Math.min(cpuPercent, 100)}%`,
+            backgroundColor: "var(--color-cpu)",
+          }}
+        />
+        <span className="relative">{formatPercent(cpuPercent)}</span>
       </div>
-      {/* Memory with heat */}
-      <div className="w-24 px-1 text-right text-[11px]" style={{ backgroundColor: getHeatBg(memPercent) }}>
-        {formatMemory(group.totalMemory)}
+      {/* Memory with heat + inline progress bar */}
+      <div
+        className="flex-1 min-w-[80px] px-1 text-right text-[12px] tabular-nums relative overflow-hidden"
+        style={{ backgroundColor: getResourceHeatBg(memPercent, "memory") }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 opacity-15 pointer-events-none"
+          style={{
+            width: `${Math.min(memPercent, 100)}%`,
+            backgroundColor: "var(--color-memory)",
+          }}
+        />
+        <span className="relative">{formatBytes(group.totalMemory)}</span>
       </div>
       {/* Disk */}
-      <div className="w-24 px-1 text-right text-[11px] text-text-secondary">
+      <div className="flex-1 min-w-[80px] px-1 text-right text-[12px] text-text-secondary tabular-nums">
         {formatDiskRate(group.totalDiskRead + group.totalDiskWrite)}
       </div>
     </div>
@@ -349,31 +399,55 @@ interface ChildRowProps {
   process: ProcessInfo;
   totalMemory: number;
   isSelected: boolean;
+  animate: boolean;
   onClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function ChildRow({ process, totalMemory, isSelected, onClick, onContextMenu }: ChildRowProps) {
+function ChildRow({ process, totalMemory, isSelected, animate, onClick, onContextMenu }: ChildRowProps) {
   const memPercent = (process.memory_bytes / totalMemory) * 100;
 
   return (
     <div
-      className={`flex items-center px-3 h-full text-[11px] cursor-pointer border-b border-border/20
-        ${isSelected ? "bg-[#0078d4]/12" : "hover:bg-tertiary"} text-text-secondary`}
+      className={`flex items-center px-3 min-h-[34px] h-full text-[12px] cursor-pointer
+        ${isSelected ? "bg-[var(--state-selected)]" : "hover:bg-tertiary"} text-text-secondary
+        ${animate ? "animate-child-row-enter" : ""} focus-ring`}
+      tabIndex={0}
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
-      <div className="flex-[2.5] px-1 flex items-center truncate">
-        <span className="w-8 shrink-0" />
-        <span className="truncate">PID {process.pid}</span>
+      {/* Indentation aligns with parent name text: arrow(w-4=16px) + gap(6px) + icon(16px) + gap(6px) = 44px offset */}
+      <div className="flex-[2] min-w-0 px-1 flex items-center overflow-hidden">
+        <span className="w-[44px] shrink-0" />
+        <span className="truncate select-text" title={`PID ${process.pid}`}>PID {process.pid}</span>
       </div>
-      <div className="w-16 px-1 text-right" style={{ backgroundColor: getHeatBg(process.cpu_percent) }}>
-        {formatCpu(process.cpu_percent)}
+      <div
+        className="flex-1 min-w-[64px] px-1 text-right tabular-nums relative overflow-hidden"
+        style={{ backgroundColor: getResourceHeatBg(process.cpu_percent, "cpu") }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 opacity-15 pointer-events-none"
+          style={{
+            width: `${Math.min(process.cpu_percent, 100)}%`,
+            backgroundColor: "var(--color-cpu)",
+          }}
+        />
+        <span className="relative">{formatPercent(process.cpu_percent)}</span>
       </div>
-      <div className="w-24 px-1 text-right" style={{ backgroundColor: getHeatBg(memPercent) }}>
-        {formatMemory(process.memory_bytes)}
+      <div
+        className="flex-1 min-w-[80px] px-1 text-right tabular-nums relative overflow-hidden"
+        style={{ backgroundColor: getResourceHeatBg(memPercent, "memory") }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 opacity-15 pointer-events-none"
+          style={{
+            width: `${Math.min(memPercent, 100)}%`,
+            backgroundColor: "var(--color-memory)",
+          }}
+        />
+        <span className="relative">{formatBytes(process.memory_bytes)}</span>
       </div>
-      <div className="w-24 px-1 text-right">
+      <div className="flex-1 min-w-[80px] px-1 text-right tabular-nums">
         {formatDiskRate(process.disk_read_bytes + process.disk_write_bytes)}
       </div>
     </div>
